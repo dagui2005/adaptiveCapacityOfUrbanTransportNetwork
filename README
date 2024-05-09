@@ -1,0 +1,10 @@
+The project contains three parts.
+The first part is the preperation before simulation in Python folder.
+  This part includes Multimodal transport system construction (Nanjing)
+The second part is Agent-based transport simulation experiments in Java folder.
+  including baseline experiments, flooding experiments and 
+The third part is the analysis after simulation in Python folder.
+
+
+
+
