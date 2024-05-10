@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE config SYSTEM "http://www.matsim.org/files/dtd/config_v2.dtd">
 <config>
-	<!--Fa only prohibits agent from mode shift.-->
+	<!--Fb only prohibits agent from mode shift.-->
 	<module name="JDEQSim" >
 		<param name="carSize" value="7.5" />
 		<param name="endTime" value="undefined" />
