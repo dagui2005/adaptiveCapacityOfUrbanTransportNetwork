@@ -1,4 +1,4 @@
-This repository contains code sufficient to replicate all findings from "Adaptive capacity unveils urban transport network resilience to extreme floods" a in-submission paper.
+This repository contains data and codes to replicate all findings from "Adaptive capacity unveils urban transport network resilience to extreme floods" a in-submission paper.
 
 The repository contains two parts.
 The first part "simulation" includes Nanjing multimodal baseline scenario dataset and asscoicited Java codes for performing simulation.
