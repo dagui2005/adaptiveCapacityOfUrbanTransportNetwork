@@ -1,6 +1,10 @@
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
+import numpy as np
+from matplotlib import ticker
+plt.style.use("default")
 
 """ 1. data preperation """
 # Hamburg shp. epsg:25832. Nanjing shp:32650
@@ -162,13 +166,6 @@ for threshold in threshold_list:
     # threshold += 1.0
 
 
-import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sns
-import numpy as np
-from matplotlib import ticker
-plt.style.use("default")
-
 """ for hamburg, German """
 # baseline scenario
 base_pt_link_num4Hamburg = 25827  
@@ -215,7 +212,7 @@ operational_pt_frac4LA = list(flooded_link_df['[pt]after indirect'] / base_pt_li
 gcc_road_frac4LA = list(flooded_link_df['[ride_school_bus, ride_taxi, freight, ride, car]after indirect'] / base_road_link_num4LA)
 gcc_superNet_frac4LA = list((flooded_link_df['[pt]after indirect'] + flooded_link_df['[ride_school_bus, ride_taxi, freight, ride, car]after indirect']) / (base_road_link_num4LA + base_pt_link_num4LA))
 
-""" figure 1: threshold versus the fraction of gcc"""
+""" figure: threshold versus the fraction of gcc"""
 ########### 1.1 only for road network 
 plt.style.use("default")
 # sns.set(font="Arial", font_scale=1.5, style="ticks")
@@ -267,7 +264,7 @@ for ax in fig.axes:
 fig.legend(lines, labels, loc = 'center right', bbox_to_anchor=(1.5,0.5), frameon=False, fontsize=20)
 plt.savefig(r"Your output file path", format='pdf', dpi=1200, pad_inches=0.1, bbox_inches='tight')
 
-""" figure 2: fraction of direct failures versus fraction of gcc"""
+""" figure: fraction of direct failures versus fraction of gcc"""
 ########### 1.1 only for road network 
 from matplotlib import rcParams
 rcParams['font.family'] = 'Arial'
@@ -316,7 +313,7 @@ for ax in fig.axes:
 fig.legend(lines, labels, loc = 'center right', bbox_to_anchor=(1.5,0.5), frameon=False, fontsize=20)
 plt.savefig(r"Your output file path", format='pdf', dpi=1200, pad_inches=0.1, bbox_inches='tight')
 
-""" figure 3: fraction of direct failures versus inundation threshold """
+""" figure: fraction of direct failures versus inundation threshold """
 ########### 1.1 only for road network 
 from matplotlib import rcParams
 rcParams['font.family'] = 'Arial'

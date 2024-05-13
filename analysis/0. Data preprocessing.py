@@ -60,7 +60,6 @@ p = (trips.traveled_distance < trips.euclidean_distance)
 travel_dis_eucl_dis_num = np.sum(p != 0)
 trips = trips[trips.traveled_distance > trips.euclidean_distance]
 ######### Deletion of invalid samples - travel time over 300min  #############
-travel_time_induced_num.append(len(trips[trips['travel_time(min)'] > 300]))
 trips.drop(index = trips[trips['travel_time(min)'] > 300].index, inplace=True) 
 ######### Delete invalid information and add valid information  #############
 trips.drop(columns=['Unnamed: 0', 'trip_number', 'dep_time', \

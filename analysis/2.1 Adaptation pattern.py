@@ -105,8 +105,8 @@ base_pt_link_num4Nanjing = 17350
 base_road_link_num4Nanjing = 17319
 flooded_link_df = pd.read_csv(r"Your output file folder\network damage for nanjing.csv")
 # the fraction of direct failures
-direct_failed_pt_frac4Nanjing = list((base_pt_link_num4Nanjing - flooded_link_df['pt link after direct']) / base_pt_link_num4Nanjing)[:len(car2car_samePath_abs)]
-direct_failed_road_frac4Nanjing = list((base_road_link_num4Nanjing - flooded_link_df['road link after direct']) / base_road_link_num4Nanjing)[:len(car2car_samePath_abs)]
+direct_failed_pt_frac4Nanjing = list((base_pt_link_num4Nanjing - flooded_link_df['pt link after direct']) / base_pt_link_num4Nanjing)[:len(car2car_samePath_rel)]
+direct_failed_road_frac4Nanjing = list((base_road_link_num4Nanjing - flooded_link_df['road link after direct']) / base_road_link_num4Nanjing)[:len(car2car_samePath_rel)]
 direct_failed_pt_frac4Nanjing.reverse() # Destruction ratio from small to large, inundation threshold from large to small
 direct_failed_road_frac4Nanjing.reverse() 
 

@@ -24,32 +24,31 @@ trips_threshold8 = pd.read_csv(r"Your folder path\output_trips_wgs84_cleaned.csv
 struct_damages_df = pd.read_csv(r"Your file path")
 operational_damages_df = pd.read_csv(r"Your file path")
 
-################# Functional resilience statistics ######################
-threshold = 0
-thresholds = []
-impassable_trips_prop = []
-pt_splits, pt_splits_adjusted = [], []  # Public transportation share, adjusted public transportation share
-car_splits, car_splits_adjusted = [], []
 
+sns_df = pd.DataFrame()
+modes, duration, thresholds = [], [], []    # 用于绘制箱型图，每一行代表一条 trip
+threshold_list, median_duration_car, median_duration_pt = [], [], []   # 用于描绘中位数连线 每一行代表一个洪水场景
+
+threshold = 0
 for trips in [trips_threshold0, trips_threshold1, trips_threshold2, trips_threshold3, trips_threshold4, trips_threshold5, \
     trips_threshold6, trips_threshold7, trips_threshold8]:
-    thresholds.append(threshold)
-    impassable_trips_prop.append((len(trips_baseline) - len(trips)) / len(trips_baseline))
-    pt_splits.append( len(trips[trips["my_modes"]!="car"]) / len(trips) )
-    car_splits.append( 1 - len(trips[trips["my_modes"]!="car"]) / len(trips))
-    pt_splits_adjusted.append( len(trips[trips["my_modes"]!="car"]) / len(trips_baseline) )
-    car_splits_adjusted.append( len(trips[trips["my_modes"]=="car"]) / len(trips_baseline))
+    thresholds = thresholds + [threshold] * len(trips) 
+    # car
+    duration = duration + list(trips[trips.my_modes == "car"]["travel_time(min)"])
+    modes = modes + ["car"] * len(trips[trips.my_modes == "car"]["travel_time(min)"])
+    # public transit
+    duration = duration + list(trips[trips.my_modes == "pt"]["travel_time(min)"])
+    modes = modes + ["pt"] * len(trips[trips.my_modes == "pt"]["travel_time(min)"])
+    ################################
+    threshold_list.append(threshold)
+    median_duration_car.append(trips[trips.my_modes == "car"]["travel_time(min)"].median())
+    median_duration_pt.append(trips[trips.my_modes == "pt"]["travel_time(min)"].median())
+
     threshold += 1
-
-function_damages_df = pd.DataFrame()
-function_damages_df["T"] = thresholds
-function_damages_df["impassable_trips_prop"] = impassable_trips_prop
-function_damages_df["pt_splits"] = pt_splits
-function_damages_df["car_splits"] = car_splits
-function_damages_df["pt_splits_adjusted"] = pt_splits_adjusted
-function_damages_df["car_splits_adjusted"] = car_splits_adjusted
-
-# function_damages_df.to_csv(r"Your output file path")
+    
+sns_df["threshold"] = thresholds
+sns_df['duration'] = duration
+sns_df['modes'] = modes
 
 """ 2. travel time """
 from matplotlib import rcParams
@@ -60,8 +59,8 @@ sns.boxplot(x='threshold', y='duration', ax=ax, hue='modes', palette={"car":sns.
             showmeans=True, meanprops={"marker": "o", "markerfacecolor":"white", "markeredgecolor":"black"})
 
 # In order to keep the straight lines and box plots consistent when plotting, the car's horizontal coordinate is shifted left by 0.1 and the pt's horizontal coordinate is shifted right by 0.1.
-ax.plot([i + 0.1 for i in threshold_list], median_duration_pt, color=sns.color_palette("Set2")[0], alpha=1, linewidth=2, linestyle='dashed')
-ax.plot([i - 0.1 for i in threshold_list], median_duration_car, color=sns.color_palette("Set2")[1], alpha=1, linewidth=2, linestyle='solid')
+ax.plot([i + 0.1 for i in thresholds], median_duration_pt, color=sns.color_palette("Set2")[0], alpha=1, linewidth=2, linestyle='dashed')
+ax.plot([i - 0.1 for i in thresholds], median_duration_car, color=sns.color_palette("Set2")[1], alpha=1, linewidth=2, linestyle='solid')
 ax.legend_.remove()
 ax.set_xlabel("$T$ (m)", fontsize=14)
 ax.set_ylabel("Travel time (min)", fontsize=14)

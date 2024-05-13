@@ -136,6 +136,8 @@ def get_comp_values(df):
     travel_time_mean = df['travel_time(min)'].mean()
     return [trip_count_bus_sub, bus_win, sub_win, bus_sub_compl], [trip_count_car_pt, car_win, pt_win, car_pt_compl], [travel_radius_mean, travel_distance_mean, travel_time_mean]
 
+# groupby "origin" and "destination"
+results = trips_nj_gdf.groupby(["o_grid_id", "d_grid_id"]).apply(get_comp_values)
 
 """ 4. plot figures for the relationship between bus and subway """
 sns_df = pd.DataFrame()

@@ -7,6 +7,28 @@ from osgeo import gdal
 import struct
 import statsmodels.api as sm
 
+
+""" 0. import grids data """
+# nanjing city 
+grids_gdf_nanjing = gpd.read_file(r"Nanjing grids (1km).shp")
+grids_gdf_nanjing['gridId'] = list(range(len(grids_gdf_nanjing)))  # new a gridID
+grids_gdf_nanjing.drop(columns=['Id'], inplace=True)
+grids_gdf_nanjing.to_crs(epsg=4326, inplace=True)
+print("nanjing grid. CRS: ", grids_gdf_nanjing.crs)
+
+# hamburg
+grids_gdf_hamburg = gpd.read_file(r"Hamburg grids (1km).shp")
+grids_gdf_hamburg['gridId'] = grids_gdf_hamburg['id']
+grids_gdf_hamburg.drop(columns=['id', 'left', 'top', 'right', 'bottom'], inplace=True)
+print("hamburg grid. CRS: ", grids_gdf_hamburg.crs)
+
+# LA
+grids_gdf_LA = gpd.read_file(r"LA grids (1km).shp")
+grids_gdf_LA['gridId'] = grids_gdf_LA['id']
+grids_gdf_LA.drop(columns=['id', 'left', 'top', 'right', 'bottom'], inplace=True)
+print("LA grid. CRS: ", grids_gdf_LA.crs)
+
+
 """ 1. function: count the number of car (or pt) links in each grid """
 def getCarLinkNum(each_group):
     return len(each_group[each_group['my_mode'] == 'road'])
@@ -23,9 +45,9 @@ def count_link(network_gdf, grids_gdf):
     return gridId2CarLinkNum, gridId2PtLinkNum  # NOTE: return a series
 
 """ 2. calculate the number of car link and pt link in each grid """
-# threshold_list_nanjing = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
-# threshold_list_hamburg = [0.0, 0.3, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
-# threshold_list_la = [0.0, 0.003, 0.007, 0.01, 0.02, 0.07, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+threshold_list_nanjing = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+threshold_list_hamburg = [0.0, 0.3, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+threshold_list_la = [0.0, 0.003, 0.007, 0.01, 0.02, 0.07, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
 
 print(">>>>>>>>>>> For Nanjing <<<<<<<<")
 for threshold in threshold_list_nanjing:
@@ -107,7 +129,7 @@ car_link_mean_nanjing = []
 for i in [car_link_num_floodTh8_nanjing, car_link_num_floodTh7_nanjing, car_link_num_floodTh6_nanjing, car_link_num_floodTh5_nanjing, car_link_num_floodTh4_nanjing, \
           car_link_num_floodTh3_nanjing, car_link_num_floodTh2_nanjing, car_link_num_floodTh1_nanjing, car_link_num_floodTh0_nanjing]:
     car_link_mean_nanjing.append((i['link num'].mean()) / car_link_num_baseline_nanjing['link num'].mean())
-pt_link_std_nanjing_inundated_grids = []
+pt_link_mean_nanjing = []
 for i in [pt_link_num_floodTh8_nanjing, pt_link_num_floodTh7_nanjing, pt_link_num_floodTh6_nanjing, pt_link_num_floodTh5_nanjing, pt_link_num_floodTh4_nanjing, \
           pt_link_num_floodTh3_nanjing, pt_link_num_floodTh2_nanjing, pt_link_num_floodTh1_nanjing, pt_link_num_floodTh0_nanjing]:
     pt_link_mean_nanjing.append((i['link num'].mean()) / pt_link_num_baseline_nanjing['link num'].mean())
