@@ -1,4 +1,6 @@
-The project contains two parts.
+This repository contains code sufficient to replicate all findings from "Adaptive capacity unveils urban transport network resilience to extreme floods" a in-submission paper.
+
+The repository contains two parts.
 The first part "simulation" includes Nanjing multimodal baseline scenario dataset and asscoicited Java codes for performing simulation.
 The second part "anlysis" inlcudes main Python codes to analyze the results from simulation.
 
