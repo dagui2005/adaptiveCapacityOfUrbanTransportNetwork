@@ -1,6 +1,6 @@
 # matsim-nanjing multimodal transport system
 
-By default, this project uses the latest (pre-)release. In order to use a different version, edit `pom.xml`.
+By default, this project uses the 13 version. In order to use a different version, edit `pom.xml`.
 
 A recommended directory structure is as follows:
 * `src` for sources
