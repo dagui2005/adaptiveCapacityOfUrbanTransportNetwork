@@ -72,40 +72,18 @@ public class CleanInvalidSchedule {
                 for (Id<Link> linkId : transitRoute.getRoute().getLinkIds()
                 ) {
                     if (linkId.toString().split("_")[0].equals("pt")) {
-                        // 如果该 Link 是 artificial link，我们视为永远不会被淹没，跳过
+                        // 如果该 Link 是 artificial link，我们不考虑，跳过
                         continue;
                     }
                     if (!networkAfterDamage.getLinks().containsKey(linkId)) {
 //                        这条线路中只要有一个路段被破坏，这条线路就被破坏掉了，即停止检测这条线路的其它路段，跳出两层的循环，循环下一个线路
                         transitLinesRemoved.add(transitLine);
                         break label;
-                        // 20220410，经检验，移除公共交通线路的原理和程序应该是没问题的，但是问题在于输入的道路网络就是有问题的，输入的网络不含有任何 artificial 路段，这导致大量bus线路没有匹配的路段，被删掉，因此造成了 bus 线网下降的巨快。
-                        // 再往前推，这应当是 MATSim Network 转为 shp 的问题，没有把 artificial 路段转过去。
                     }
                 }
             }
         }
 
-
-////        20220410 更改无效线路的计算方法，判断线路对应的站点是否存在，如果存在就认为有效，如果不存在就认为失效
-//        for (TransitLine transitLine : scheduleBeforeDamage.getTransitLines().values()
-//        ) {
-//            label:
-//            // 循环标签，默认情况下 break 只能跳出当前循环，添加标签后，可跳出指定循环。
-//            for (TransitRoute transitRoute : transitLine.getRoutes().values()
-//            ) {
-//                for (TransitRouteStop transitRouteStop : transitRoute.getStops()
-//                ) {
-//                    if (transitStopsRemoved.contains(transitRouteStop)) {
-////                        这条线路中只要有一个站点不存在了，这条线路就被破坏掉了，即停止检测这条线路的其它路段，跳出两层的循环，循环下一个线路
-//                        transitLinesRemoved.add(transitLine);
-//                        break label;
-//                        // 20220410，经检验，移除公共交通线路的原理和程序应该是没问题的，但是问题在于输入的道路网络就是有问题的，输入的网络不含有任何 artificial 路段，这导致大量bus线路没有匹配的路段，被删掉，因此造成了 bus 线网下降的巨快。
-//                        // 再往前推，这应当是 MATSim Network 转为 shp 的问题，没有把 artificial 路段转过去。
-//                    }
-//                }
-//            }
-//        }
 
         /* 3. delete invalid transit stops and lines. */
         for (TransitStopFacility transitStopFacility : transitStopsRemoved
@@ -148,7 +126,7 @@ public class CleanInvalidSchedule {
             transferTimes.remove(iterator.getFromStopId(), iterator.getToStopId());
         }
 
-        /* 4. delete invalid transit vehicles. 20220410, 这里我没有删除无效车辆，因为觉得删不删除对运行没有太大影响 */
+        /* 4. delete invalid transit vehicles. 20220410, 这里没有删除无效车辆，因为删不删除对运行没有太大影响 */
 //        ScheduleCleaner.cleanVehicles();
 
         /* 5. write */
