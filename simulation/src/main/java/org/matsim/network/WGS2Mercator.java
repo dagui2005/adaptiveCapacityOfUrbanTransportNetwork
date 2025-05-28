@@ -2,7 +2,6 @@ package org.matsim.network;
 
 /*2021.3.13, Chunhong Li
 * WGS84坐标系转换为墨卡托投影坐标系；
-* 但y的转换核心公式和代码不完全相同，网上的都是这么处理。
 *
 */
 
