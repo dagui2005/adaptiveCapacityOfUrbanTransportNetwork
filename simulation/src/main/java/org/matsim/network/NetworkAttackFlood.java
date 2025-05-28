@@ -69,7 +69,7 @@ public class NetworkAttackFlood {
 //            String outputNetworkPath1 = "D:\\【学术】\\【研究生】\\【方向】多模式交通网络韧性-new floods data\\【验证】美国洛杉矶\\flood scenario\\network\\xml\\my2-50th-los-angeles-network-direct failure-threshold" + threshold + "m.xml.gz";
 //            String outputNetworkPath2 = "D:\\【学术】\\【研究生】\\【方向】多模式交通网络韧性-new floods data\\【验证】美国洛杉矶\\flood scenario\\network\\xml\\my2-50th-los-angeles-network-indirect failure-threshold" + threshold + "m.xml.gz";
 
-//        2. read the water depth for each node! 20220202. This is a little different from the Nanjing scenario.
+//        2. read the water depth for each node! 20220202.
             boolean isFlooded;
             ArrayList<Id<Node>> floodedNodeIds = new ArrayList<>();
             ArrayList<Id<Link>> floodedLinkIds = new ArrayList<>();
