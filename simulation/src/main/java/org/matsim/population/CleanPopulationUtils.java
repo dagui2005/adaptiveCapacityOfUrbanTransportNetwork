@@ -21,15 +21,12 @@ import java.util.ListIterator;
  * @date: 2022年04月15日 16:59
  * @Description: 删除指定的需求。
  * 1. “deletePerson” “savePerson”   本程序目前可用于删除含有特定网格 Id 的需求，或者保存含有特定网格 Id 的需求，这个删除的是 agent.
- * 2. “deleteModes”  删除指定的需求，添加“删除指定模式的需求”，理论上应该删除的是 leg，但是 leg 并不好删除，不如删除 Plan.
+ * 2. “deleteModes”  删除指定的需求，添加“删除指定模式的需求”，删除 Plan.
  * 3. “deleteUnselectedPlans”   删除未被选中的 plan，这个删除的是 plan. 一个 agent 可能有很多个 plans, 但其中有且只有一个 plan 是 selected。
- * 4. “deleteAgentsNoPlan”   错误 agent 删除： 没有一个 selected plan 的 agent 的删除
+ * 4. “deleteAgentsNoPlan”    agent 删除： 没有一个 selected plan 的 agent 的删除
  * 5. “minedPopulation”  精簡 popluation，只保留 agent 的属性，活动的位置，类型和结束时间（最后一个活动没有结束时间），trip中主要 leg 的模式
  * 6. "deleteAgentsNoActivity"  删除没有活动的 agent。一个 agent 至少要有一个 plan,一个plan 至少要有一个 activity.
  * *
- * <p>
- * NOTE: 20220526 我意识到这个代码库并不能将双层级多模式交通系统的需求转化为单层级单模式的需求，因为我拿 output_plans 处理时，剔除的公共交通需求都是离公交站点近的需求，
- * 不满足随机抽样，因此从初始需求中随机抽样。
  */
 public class CleanPopulationUtils {
 
@@ -107,15 +104,6 @@ public class CleanPopulationUtils {
 
             if (hasInvalidLeg) {
                 person.removePlan(selectedPlan);
-
-//                若这个计划中有一个 Leg 的 mode 不符合我们的期望，我们就把这个 Plan 全部删除，理论上应该只删除对应的 Leg
-//                此处我们可以选择以一定概率删除，比如我们按照 metro passengers 在公共交通中的比例（依据调查数据即可），则只会剔除 metro passengers
-//                https://www.nanjing.gov.cn/zdgk/202107/t20210701_3023701.html 疫情之前的 bus 0.3532 metro 0.6468
-//                20220524. 這個處理方法不好，很多原來使用地鐵的plan的詳細信息會留下來，而且很難完全去除，比如 route信息，pt interation.
-//                var r = new Random();
-//                if (r.nextDouble() < 0.6468) {
-//                    person.removePlan(selectedPlan);
-//                }
             }
 
         }
@@ -381,22 +369,3 @@ public class CleanPopulationUtils {
 //        PopulationUtils.writePopulation(populationMined, outputPopPath);
 //    }
 }
-
-//    //    delete plans modes != car
-//    public static void main(String[] args) {
-////        用于输出单层级单模式系统的需求，无法输出单层级双模式的系统需求
-////        We should use the population files after modal split modification.
-//        String inputPopPath = "D:\\【学术】\\【研究生】\\【方向】多模式交通网络韧性\\【数据】交通仿真\\有洪水\\output01_demand.noex20.0.27.100pct.runoff1\\output_plans.xml.gz";
-////        String inputPopPath = "D:\\【学术】\\【研究生】\\【方向】多模式交通网络韧性\\【数据】交通仿真\\无洪水\\output01_demand.noex20.0.27.100pct\\output_plans.xml.gz";
-//        String validMode = "car";
-//        String outputPopPath = "D:\\【学术】\\【研究生】\\【方向】多模式交通网络韧性\\【数据】交通仿真\\单层级单模式\\小汽车需求\\runoff.0.residual.demand.xml.gz";
-//
-//        Population pop = PopulationUtils.readPopulation(inputPopPath);
-//
-//        Population pop1 = deleteUnselectedPlans(pop);      // remove unselected plans.
-//        Population pop2 = deleteModes(pop1, validMode);      // remove plans in which the mode leg is invalidMode.
-//        Population pop3 = deleteAgentsNoPlan(pop2);    // remove persons without plans.
-//        new PopulationWriter(pop3).writeV6(outputPopPath);
-//    }
-
-//}
