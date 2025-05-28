@@ -81,7 +81,7 @@ public class ClipNetwork {
 //        Clip scope. (LA flood map)
         Coord minLonLat = new Coord(-118.69353628, 33.70592779);
         Coord maxLonLat = new Coord(-117.64637248, 34.41048562);
-//        TODO: Los Angeles:3310
+//        Los Angeles:3310
         CoordinateTransformation wgs84ToEpsg3310 = TransformationFactory.getCoordinateTransformation(TransformationFactory.WGS84, "epsg:3310");
         Coord minXY = wgs84ToEpsg3310.transform(minLonLat);
         Coord maxXY = wgs84ToEpsg3310.transform(maxLonLat);
