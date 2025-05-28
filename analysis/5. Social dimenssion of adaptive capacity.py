@@ -61,8 +61,7 @@ person_attr_df.head()
 
 
 # label the income
-# 方法2：按照数据的频数等分为五组
-# 使用 qcut 函数直接将数据分成五组
+# 按照数据的频数等分为四组
 person_attr_df["income_rank2"] = pd.qcut(person_attr_df['hhinc'], q=4, labels=False)   # 参考论文 A global map of travel time to cities to assess inequalities in accessibility in 2015
 
 
