@@ -71,9 +71,9 @@ plt.savefig(r"Your output file path", format='pdf', dpi=1200, pad_inches=0.1, bb
 """ 3. fraction of passable trips """
 threshold = 0
 thresholds = []
-pt_splits = []  # 公交分担率  分母是 runoff = 0 场景下的需求
-car_splits = []   # 小汽车分担率  分母是 runoff = 0 场景下的需求
-transfer_times = []  #  平均公共交通换成率
+pt_splits = []  # 公交分担率 
+car_splits = []   # 小汽车分担率 
+transfer_times = []  #  平均公共交通换乘率
 passable_trips_prop = []
 
 for trips in [trips_threshold0, trips_threshold1, trips_threshold2, trips_threshold3, trips_threshold4, trips_threshold5, \
