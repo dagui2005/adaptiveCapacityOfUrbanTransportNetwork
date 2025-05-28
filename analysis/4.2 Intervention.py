@@ -5,7 +5,7 @@ import statsmodels.api as sm
 
 """ 0. import data """
 # Please preprocess the output data after simulation using python code 0 in advance.
-# for threshold = 5
+# for threshold = 3
 nanjing_t3_r1_df = pd.read_csv(r"Your folder path\demand for each pt subsidy under flooding scenario of threshold3 random seed 1.csv").drop(columns='Unnamed: 0')
 nanjing_t3_r2_df = pd.read_csv(r"Your folder path\demand for each pt subsidy under flooding scenario of threshold3 random seed 2.csv.csv").drop(columns='Unnamed: 0')
 nanjing_t3_r3_df = pd.read_csv(r"Your folder path\demand for each pt subsidy under flooding scenario of threshold3 random seed 3.csv.csv").drop(columns='Unnamed: 0')
