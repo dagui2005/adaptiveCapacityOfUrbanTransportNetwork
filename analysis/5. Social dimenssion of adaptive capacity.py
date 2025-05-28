@@ -326,3 +326,5 @@ trip_ids_list_f_la_t03 = [flood_induced_tripIds_la_t03_all[k], unreached_trip_id
 output_file_path = r""
 # plot_sankey(trip_ids_list_fa=trip_ids_list_fa_la_t03, trip_ids_list_fb=trip_ids_list_fb_la_t03, trip_ids_list_f=trip_ids_list_f_la_t03, out_file_path=output_file_path)
 plot_sankey_opt(trip_ids_list_fa=trip_ids_list_fa_la_t03, trip_ids_list_fb=trip_ids_list_fb_la_t03, trip_ids_list_f=trip_ids_list_f_la_t03, out_file_path=output_file_path)
+
+""" # Using google chart templates for Sankey diagrams  https://developers.google.com/chart/interactive/docs/gallery/sankey """
