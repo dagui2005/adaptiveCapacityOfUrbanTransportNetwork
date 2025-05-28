@@ -67,9 +67,9 @@ public class IdentifyIndirectFailures {
         TransitSchedule transitSchedule = ScheduleTools.readTransitSchedule("D:\\【学术】\\【研究生】\\【方向】多模式交通网络恢复\\hamburg\\code validation\\identify direct failures and repairs\\input\\hamburg-v3.0-transitSchedule.xml.gz");
         Network roadNet = SeparateRoadAndSubway.run4RoadNet(network);
         Network ptNet = SeparateRoadAndSubway.run4MetroNet(network); // the pt network of hamburg is just like metro network.
-//        Todo: make sure the correct flood map. the global flood map
+//        make sure the correct flood map. the global flood map
         String floodMapPath = "D:\\【学术】\\【研究生】\\【方向】多模式交通网络韧性-new floods data\\【数据】洪水数据\\Joint research centre data\\floodMapGL_rp100y\\floodMapGL_rp100y.tif";
-//        TODO: make sure the correct coord transformation system.
+//        make sure the correct coord transformation system.
         CoordinateTransformation epsg25832To4326 = TransformationFactory.getCoordinateTransformation("epsg:25832", TransformationFactory.WGS84);
         Dataset dataset = NetworkAttackFlood.readTiff(floodMapPath);
         String outNetworkAfterDirect = "D:\\【学术】\\【研究生】\\【方向】多模式交通网络恢复\\hamburg\\code validation\\identify direct failures and repairs\\output\\networkAfterDirectFailures.xml.gz";
