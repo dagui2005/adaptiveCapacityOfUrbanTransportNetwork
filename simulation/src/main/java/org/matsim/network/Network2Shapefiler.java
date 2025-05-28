@@ -23,7 +23,6 @@ import java.util.Collection;
  * @date: 2022年04月6日 11:31
  * @Description: 将网络文件由 XML 格式转换为 Shapefile 格式，便于 geopandas 和 osmnx 处理。本程序的主要通过自己编程 "myLinks2ESRIShape" 实现，参考 matsim-codes-examples。输出的包括 links 和 nodes 两种 shapefiles
  * 包含路段的 modes 信息。
- * 20220410，但是，我发现，这个程序没有把 artificial 路段转过去，考虑到在图像展示的时候也不需要展示 artificial 路段，因此，不转也行，但是当你做运营失效处理的时候（CleanInvalidSchedule.java），就必须考虑添加上 artificial links，否则会造成大量的 bus lines 被误删。
  */
 public class Network2Shapefiler {
     //    输入的网络 XML 文件路径
