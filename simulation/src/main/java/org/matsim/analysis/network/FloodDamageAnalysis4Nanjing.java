@@ -12,8 +12,7 @@ import java.util.*;
  * @author: Chunhong li
  * @date: 2023年02月04日 15:45
  * @Description: 1. 统计初始场景的各个模式的网络的路段数，洪水场景下直接失效后各个模式的网络路段数，洪水场景下间接失效后的各个模式的路段数
- * 2. 道路网络的间接失效是最大连通子图处理，公交网络（Space L 建模）的间接失效是晕应处理。
- * 3. 结果写出到 excel. 20220204. 应该输出到 txt 文件的！方便又好用
+ * 2. 道路网络的间接失效是最大连通子图处理，公交网络（Space L 建模）的间接失效是运营处理。
  */
 public class FloodDamageAnalysis4Nanjing {
     public static void main(String[] args) {
