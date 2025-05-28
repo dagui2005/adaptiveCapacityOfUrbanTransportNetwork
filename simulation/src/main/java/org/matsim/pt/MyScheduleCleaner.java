@@ -80,26 +80,6 @@ public class MyScheduleCleaner {
     }
 
     public static void main(String[] args) {
-//        int seed = 7;    // 随机种子 --- 网络随机破坏的种子
-//        while (seed <= 9) {
-//            double threshold = 0.0;   // 随机破坏场景对应的洪水场景的淹没阈值
-//            while (threshold <= 15) {
-////            NOTE: random damages considering multiplex networks as different networks. That is to say, road network and metro network have different random disruption proportion.
-//                Network network = NetworkUtils.readNetwork(networkFolder + "residual coupled network.randomDamages.thereshold" + threshold + "m.seed" + seed + ".s.xml");
-//                TransitSchedule transitSchedule = ScheduleTools.readTransitSchedule("src/main/resources/transitSchedule.xml");
-//
-//                // clean the transit lines and stations of schedule whose links not exit on the network
-//                cleanScheduleWithNetwork(transitSchedule, network);
-//                // remove transfer information
-//                cleanTransfer(transitSchedule);
-//
-//                ScheduleTools.writeTransitSchedule(transitSchedule, newScheduleFolder + "residual schedule.randomDamages.thereshold" + threshold + "m.seed" + seed + ".xml");
-//
-//                threshold += 0.5;
-//            }
-//            seed += 1;
-//        }
-
 //        Flood damages for open-source scenarios.
         double[] thresholds = new double[]{3.0, 4.0, 5.0};
         for (double threshold : thresholds) {
