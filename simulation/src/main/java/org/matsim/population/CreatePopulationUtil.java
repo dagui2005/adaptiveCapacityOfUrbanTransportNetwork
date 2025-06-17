@@ -6,8 +6,6 @@
 *
 * 基于 home-work(leisure, school等)-home的出行链生成日出行需求
 *
-* 但我首先尝试先用一个 r = 0 的一个小时的出行需求试验一下，打通整个流程！！！）
-*
 * 空间离散化均处理到网格质心。
 * */
 
@@ -32,7 +30,7 @@ public class CreatePopulationUtil {
     private static String Z2ZDemandFilePath = "D:\\【学术】\\【研究生】\\【方向】多模式交通网络韧性\\【数据】需求生成\\【数据】南京市网格数据\\交通分布_1009\\多模式交通分布_r0_1009.csv";
 
 //    agent2agent travel demand 文件路径；    ！！！更改文件路径！！！
-    private static String A2ADemandFilePath = "src/main/resources/demand.noex20.0.24.100pct.xml";
+    private static String A2ADemandFilePath = "src/main/resources/demand.noex20.100pct.xml";
 
 //    提前定义 bufferedReader，避免程序都写入 try-catch语句中
     private static BufferedReader bufferedReader;
@@ -128,9 +126,6 @@ public class CreatePopulationUtil {
         System.out.println(bufferedReader.readLine());
         String line = null;
         double beta = 1;     //  样本仿真比例 1 ---> 100%
-//        double adjustParam = (double) 450 / (double) 958;  // 出行需求调整因子。分子为实际日出行需求数；分母为生成的日出行需求数.  20220322 总需求量不对，总需求应当是 393w * 2 (3933480 * 2)，但这是个调整比例，所以不影响结果. 20220330重新验证的确如此。
-//        double adjustParam = 0.4697286;
-        double adjustParam = 0.24;    // 20220330 出行需求量调整因子. 这是因为本模型中只考虑 car, bus, subway，不考虑其它的需求，所以需求量需要放缩.
 //        "/" in java 取整； so add "(double)" 以得到精确解
         String oNum;
         String dNum;
@@ -159,9 +154,9 @@ public class CreatePopulationUtil {
                 continue;
             }
 
-            carVolume = (int) Math.round(carVolume * beta * adjustParam);   // car 新的交通量
-            busVolume = (int) Math.round(busVolume * beta * adjustParam);   // bus 新的交通量
-            subwayVolume = (int) Math.round(subwayVolume * beta * adjustParam);   // subway 新的交通量
+            carVolume = (int) Math.round(carVolume * beta);   // car 新的交通量
+            busVolume = (int) Math.round(busVolume * beta);   // bus 新的交通量
+            subwayVolume = (int) Math.round(subwayVolume * beta);   // subway 新的交通量
 
 //            calculate the sum of modified demand.
             modifiedSumVolume += (carVolume + busVolume + subwayVolume) * 2;
