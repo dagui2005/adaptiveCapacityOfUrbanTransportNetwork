@@ -23,23 +23,8 @@ def wgs84toWebMercator(lon, lat):
 def calDistance(x1, y1, x2, y2):
     return math.sqrt((x1-x2)**2+(y1-y2)**2)
 
-""" 3.模式选择概率   (南京市政府调查问卷，精度较差不再使用)"""
-# def calModalProb(distance):
-    # if distance <= 5000:
-    #     # 各个模式选择概率归一化
-    #     probSum = 30.4+60.8+9.6+32.8+33.6+21.6+19.2
-    #     carProb = (21.6+19.2)/probSum  # 私家车+合乘
-    #     busProb = 32.8/probSum
-    #     subwayProb = 33.6/probSum
-    # elif distance > 5000:
-    #     probSum = 8.8+33.6+10.4+44.8+64.0+33.6+32.8
-    #     carProb = (33.6+32.8)/probSum
-    #     busProb = 44.8/probSum
-    #     subwayProb = 64.0/probSum
-
-    # return carProb, busProb, subwayProb
-
-""" 3.模式选择概率  (18年 交通运输系统工程与信息)""" 
+""" 3.模式选择概率  (18年 交通运输系统工程与信息).""" 
+# NOTE: This inital mode assignment is not final results. The MATSim loop will update the travel mode of each trip.
 def calModalProb(distance):  # 距离单位 km
     distance = distance/1000
     pWalk = 1.087*(distance**0.002316)*math.exp(-3.769*distance)
@@ -52,48 +37,18 @@ def calModalProb(distance):  # 距离单位 km
     pSub = 0.03616*(distance**0.8956)*math.exp(-0.02246*distance)
     return pCar, pBus, pSub
 
-""" 4. 在某种模式下的出行距离分布概率 （08年交通运输工程信息学报 假设城市的出行距离服从瑞利分布） """
-# def calDistProb(distance):
-#     distance = distance/1000  # 单位换算 m -> km
-
-#     cityBuiltArea = 823  # 城市建成区面积 （平方千米）
-#     x1 = math.sqrt(cityBuiltArea)  # 系数1
-#     # minCircleArea =     # 最小圆面积：以建成区为面积，以城市中心为原点的最小圆的面积 （平方千米）
-#     # x2 = math.sqrt(minCircleArea/cityBuiltArea)  # 系数2：城市形状系数
-#     x2 = 0.7
-#     publicTransitProportion = ((32.8+33.6)/(30.4+60.8+9.6+32.8+33.6+21.6+19.2)+(44.8+64.0)/(8.8+33.6+10.4+44.8+64.0+33.6+32.8))  # 公交分担比率：取两种条件下的公交分担率的平均值
-#     carProportion = ((21.6+19.2)/(30.4+60.8+9.6+32.8+33.6+21.6+19.2)+ \
-#                          (33.6+32.8)/(8.8+33.6+10.4+44.8+64.0+33.6+32.8))/2  # 私家车分担率：取两种条件下的平均值
-#     x3 = math.log10(publicTransitProportion/carProportion)  # 系数3：比值对数
-
-#     y = -0.00116*x1+0.118*x2-0.02439*x3-0.01538   # 瑞利分布（或称二阶韦布尔分布）的lamda
-
-#     return y*distance*math.exp(-0.5*y*(distance**2))   # 出行分布概率
 
 """ 4. 在某种模式下的出行距离分布概率 （08年 nature Understanding individual human mobility patterns 假设出行服从被截断的幂律分布) """
 def calDistProb(distance, beta = 1.75):
     distance = distance/1000   # 单位 m -->  km
-    # beta = 1.75   # 20241024. 设置不同的 beta. 1.6, 1.75, 1.9
+    # beta = 1.75   # 20241024. 设置不同的 beta. 1.6, 1.75, 1.9 for sensitivey analysis
     r0 = 1.5     
     K = 80   # 单位 km
     return ((distance+r0)**(-1*beta))*math.exp(-1*distance/K)
 
 """ 5.交通分布 输入网格的交通发生量和吸引量，返回各网格间的交通量"""
 """ !!! 添加O的gridID，和D的gridId """
-def trafficDistribution(GridsTripDf):  # 输入df(网格数量8748×属性11)，分别是gridID，经度，纬度，发生量r=0，吸引量r=0，发生量r=0.05，吸引量r=0.05，发生量r=0.1，吸引量r=0.1，发生量r=0.2，吸引量r=0.2，发生量r=0.4，吸引量r=0.4
-    GridsTripDf.drop(columns=[
-        # "production_r0","attraction_r0",
-        "production_r005","attraction_r005",
-        "production_r01","attraction_r01",
-        "production_r015","attraction_r015",
-        "production_r02","attraction_r02",
-        "production_r025","attraction_r025",
-        "production_r03","attraction_r03",
-        "production_r035","attraction_r035",
-        "production_r04","attraction_r04",
-        "production_r045","attraction_r045",
-        "production_r05","attraction_r05"],inplace=True)    # 只保留一项r值对应的交通发生量和吸引量
-    
+def trafficDistribution(GridsTripDf):  # 输入df(网格数量8748×属性5)，分别是gridID，经度，纬度，发生量，吸引量
     gridsTripArray = GridsTripDf.values # 输入df(网格数量8748×属性5)，分别是gridID，经度，纬度，发生量，吸引量
 
     # 交通分布，数据维度(OD数量×属性6)，分别是OGridID,DGridID,car, bus, subway，distance(m)
@@ -154,9 +109,6 @@ def trafficDistribution(GridsTripDf):  # 输入df(网格数量8748×属性11)，
 
 if __name__ == "__main__":
     # 读取所有网格的交通发生量和吸引量  
-    # 20221215 我不知道为什么，这里面的文件名字还是 0725的，明显不是最新版本的，最新版本的是 1009，最后一次修改“交通分布”结果是在 20220104
-    # GridsTripDf = pd.read_csv(r"D:\【学术】\【研究生】\【方向】多模式交通网络鲁棒性\【数据】需求生成\【数据】南京市网格数据\网格交通发生量与吸引量_0724\网格交通发生量与吸引量_0724.csv")
-    # 20241024 参数敏感性分析，生成不同的 beta 对应的
     GridsTripDf = pd.read_csv(r"X:\【学术】\【方向】多模式交通网络韧性\【数据】需求生成\【数据】南京市网格数据\网格交通发生量与吸引量_1009\网格交通发生量与吸引量_1009.csv")
     # 计算交通分布
     trafficDistributionArray = trafficDistribution(GridsTripDf)
