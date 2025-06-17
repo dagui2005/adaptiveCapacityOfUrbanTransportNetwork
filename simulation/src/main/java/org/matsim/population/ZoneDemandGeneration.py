@@ -1,9 +1,6 @@
 """ 
 @author: Chunhong Li'21.0630 revised by Li'1006
-@Description: 基于重力模型生成 网格的交通发生量和吸引量；已有数据：每个grid的WGS84经纬度，POI数，人口，及GDP。
-@revision: 修正POI的识别方式，如果该POI有多个属性，尽量选择更为细分（级别更低）的属性；
-修正不归属于有效POI类别（即定义了交通发生率）的POI的交通发生率为0
-
+@Description: 基于重力模型生成 网格的交通发生量和吸引量；已有数据：每个grid的WGS84经纬度，POI数，人口，及GDP
 """
 
 import math
@@ -35,8 +32,7 @@ def importPOI():
             POIInfo_S.append(everyPOIInfoList[6])  # POI小类
             
             POIInfo[m,1] = int(everyPOIInfoList[-13])  # 网格编号   
-                
-                
+            
             # 网格质心投影x; 网格质心投影y
             try:
                 POIInfo[m,2],POIInfo[m,3] = wgs84toWebMercator(float(everyPOIInfoList[-13]),float(everyPOIInfoList[-12]))
@@ -46,16 +42,16 @@ def importPOI():
                 print(everyPOIInfoList[6])     
                 print(m)    
             # 不用写入 r = 0 时的情况，因为那时，所有网格（POI）重要值都为1.
-            POIInfo[m,4] = float(everyPOIInfoList[-10])  # 网格重要度 r = 0.05
-            POIInfo[m,5] = float(everyPOIInfoList[-9])  # 网格重要度 r = 0.1
-            POIInfo[m,6] = float(everyPOIInfoList[-8])  # 网格重要度 r = 0.15
-            POIInfo[m,7] = float(everyPOIInfoList[-7])  # 网格重要度 r = 0.2
-            POIInfo[m,8] = float(everyPOIInfoList[-6])  # 网格重要度 r = 0.25
-            POIInfo[m,9] = float(everyPOIInfoList[-5])  # 网格重要度 r = 0.3
-            POIInfo[m,10] = float(everyPOIInfoList[-4])  # 网格重要度 r = 0.35
-            POIInfo[m,11] = float(everyPOIInfoList[-3])  # 网格重要度 r = 0.4
-            POIInfo[m,12] = float(everyPOIInfoList[-2])  # 网格重要度 r = 0.45
-            POIInfo[m,13] = float(everyPOIInfoList[-1])  # 网格重要度 r = 0.5
+            # POIInfo[m,4] = float(everyPOIInfoList[-10])  # 网格重要度 r = 0.05
+            # POIInfo[m,5] = float(everyPOIInfoList[-9])  # 网格重要度 r = 0.1
+            # POIInfo[m,6] = float(everyPOIInfoList[-8])  # 网格重要度 r = 0.15
+            # POIInfo[m,7] = float(everyPOIInfoList[-7])  # 网格重要度 r = 0.2
+            # POIInfo[m,8] = float(everyPOIInfoList[-6])  # 网格重要度 r = 0.25
+            # POIInfo[m,9] = float(everyPOIInfoList[-5])  # 网格重要度 r = 0.3
+            # POIInfo[m,10] = float(everyPOIInfoList[-4])  # 网格重要度 r = 0.35
+            # POIInfo[m,11] = float(everyPOIInfoList[-3])  # 网格重要度 r = 0.4
+            # POIInfo[m,12] = float(everyPOIInfoList[-2])  # 网格重要度 r = 0.45
+            # POIInfo[m,13] = float(everyPOIInfoList[-1])  # 网格重要度 r = 0.5
                     
             m += 1
     return POIInfo,POIInfo_S
@@ -77,7 +73,7 @@ def tripGeneration(POIInfo,POIInfo_S,POITripRate):
     # 导入网格文件，只为了计算网格数
     gridsDf = pd.read_csv(r"D:\【学术】\【研究生】\【方向】多模式交通网络鲁棒性\【数据】需求生成\【数据】南京市网格数据\汇总数据_0629\表转excel\南京市网格数据_归一化重要度_0924.csv")
     print("共有%d个网格"%(len(gridsDf)))
-    gridTripGeneration = np.zeros((len(gridsDf),23))  # 存储每个网格的网格编号，交通发生量和吸引量 (r = 0,0.05,……0.5)
+    gridTripGeneration = np.zeros((len(gridsDf),3))  # 存储每个网格的网格编号，交通发生量和吸引量 (r = 0,0.05,……0.5)
     k = 0   # 计数君，第几个POI
     invalidPOITypes = set()   # 无POI-trip-rate的POI type集合
     for POI in POIInfo:  # 对每个POI计算交通发生量和吸引量，并统计到对应网格内
@@ -99,26 +95,26 @@ def tripGeneration(POIInfo,POIInfo_S,POITripRate):
         # gridTripGeneration[int(POI[1])][0] = int(POI[1])  # 网格编号 注释的原因在于有些网格并没有POI，而此行代码无法更新这些网格的编号，不如最后直接一次性生成
         gridTripGeneration[int(POI[1])][1] += production  # r = 0 交通发生量
         gridTripGeneration[int(POI[1])][2] += production  
-        gridTripGeneration[int(POI[1])][3] += production*POI[4]  # r = 0.05 交通发生量
-        gridTripGeneration[int(POI[1])][4] += production*POI[4]  
-        gridTripGeneration[int(POI[1])][5] += production*POI[5]  # r = 0.1 交通发生量
-        gridTripGeneration[int(POI[1])][6] += production*POI[5]  
-        gridTripGeneration[int(POI[1])][7] += production*POI[6]  # r = 0.15 交通发生量
-        gridTripGeneration[int(POI[1])][8] += production*POI[6]  
-        gridTripGeneration[int(POI[1])][9] += production*POI[7]  # r = 0.2 交通发生量
-        gridTripGeneration[int(POI[1])][10] += production*POI[7]  
-        gridTripGeneration[int(POI[1])][11] += arraction*POI[8]   # r = 0.25 交通发生量
-        gridTripGeneration[int(POI[1])][12] += production*POI[8]  
-        gridTripGeneration[int(POI[1])][13] += arraction*POI[9]   # r = 0.3 交通发生量
-        gridTripGeneration[int(POI[1])][14] += production*POI[9]  
-        gridTripGeneration[int(POI[1])][15] += arraction*POI[10]   # r = 0.35 交通发生量
-        gridTripGeneration[int(POI[1])][16] += production*POI[10]  
-        gridTripGeneration[int(POI[1])][17] += arraction*POI[11]   # r = 0.4 交通发生量
-        gridTripGeneration[int(POI[1])][18] += arraction*POI[11]   
-        gridTripGeneration[int(POI[1])][19] += arraction*POI[12]   # r = 0.45 交通发生量
-        gridTripGeneration[int(POI[1])][20] += arraction*POI[12]   
-        gridTripGeneration[int(POI[1])][21] += arraction*POI[13]   # r = 0.5 交通发生量
-        gridTripGeneration[int(POI[1])][22] += arraction*POI[13]   
+        # gridTripGeneration[int(POI[1])][3] += production*POI[4]  # r = 0.05 交通发生量
+        # gridTripGeneration[int(POI[1])][4] += production*POI[4]  
+        # gridTripGeneration[int(POI[1])][5] += production*POI[5]  # r = 0.1 交通发生量
+        # gridTripGeneration[int(POI[1])][6] += production*POI[5]  
+        # gridTripGeneration[int(POI[1])][7] += production*POI[6]  # r = 0.15 交通发生量
+        # gridTripGeneration[int(POI[1])][8] += production*POI[6]  
+        # gridTripGeneration[int(POI[1])][9] += production*POI[7]  # r = 0.2 交通发生量
+        # gridTripGeneration[int(POI[1])][10] += production*POI[7]  
+        # gridTripGeneration[int(POI[1])][11] += arraction*POI[8]   # r = 0.25 交通发生量
+        # gridTripGeneration[int(POI[1])][12] += production*POI[8]  
+        # gridTripGeneration[int(POI[1])][13] += arraction*POI[9]   # r = 0.3 交通发生量
+        # gridTripGeneration[int(POI[1])][14] += production*POI[9]  
+        # gridTripGeneration[int(POI[1])][15] += arraction*POI[10]   # r = 0.35 交通发生量
+        # gridTripGeneration[int(POI[1])][16] += production*POI[10]  
+        # gridTripGeneration[int(POI[1])][17] += arraction*POI[11]   # r = 0.4 交通发生量
+        # gridTripGeneration[int(POI[1])][18] += arraction*POI[11]   
+        # gridTripGeneration[int(POI[1])][19] += arraction*POI[12]   # r = 0.45 交通发生量
+        # gridTripGeneration[int(POI[1])][20] += arraction*POI[12]   
+        # gridTripGeneration[int(POI[1])][21] += arraction*POI[13]   # r = 0.5 交通发生量
+        # gridTripGeneration[int(POI[1])][22] += arraction*POI[13]   
 
         k+=1
 
@@ -131,16 +127,17 @@ def exportGridsTrip(gridTripGenerition):
     outputPath = r"D:\【学术】\【研究生】\【方向】多模式交通网络鲁棒性\【数据】需求生成\【数据】南京市网格数据\网格交通发生量与吸引量_1009\网格交通发生量与吸引量_1009.csv"
     GridsTripDf = pd.DataFrame(gridTripGenerition,columns=[
         "gridId","production_r0","attraction_r0",
-        "production_r005","attraction_r005",
-        "production_r01","attraction_r01",
-        "production_r015","attraction_r015",
-        "production_r02","attraction_r02",
-        "production_r025","attraction_r025",
-        "production_r03","attraction_r03",
-        "production_r035","attraction_r035",
-        "production_r04","attraction_r04",
-        "production_r045","attraction_r045",
-        "production_r05","attraction_r05"])
+        # "production_r005","attraction_r005",
+        # "production_r01","attraction_r01",
+        # "production_r015","attraction_r015",
+        # "production_r02","attraction_r02",
+        # "production_r025","attraction_r025",
+        # "production_r03","attraction_r03",
+        # "production_r035","attraction_r035",
+        # "production_r04","attraction_r04",
+        # "production_r045","attraction_r045",
+        # "production_r05","attraction_r05"
+    ])
     GridsTripDf.to_csv(outputPath)
 
 if __name__ == "__main__":
