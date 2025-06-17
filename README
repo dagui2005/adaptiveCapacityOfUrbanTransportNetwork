@@ -1,7 +1,7 @@
 This repository contains data and codes to replicate all findings from "Adaptive capacity for multimodal transport network resilience to extreme floods".
 
 The repository contains two parts.
-The first part "simulation" includes Nanjing multimodal baseline scenario dataset and asscoicited Java codes for performing simulation and analyzing results.
+The first part "simulation" includes Nanjing multimodal baseline scenario dataset and asscoicited Java and Python codes for performing simulation and analyzing results.
 The second part "analysis" inlcudes main Python codes to analyze the results from simulation.
 
 See https://github.com/matsim-scenarios/matsim-hamburg for Hamburg multimodal scenario, 
