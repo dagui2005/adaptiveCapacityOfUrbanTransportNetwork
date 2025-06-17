@@ -149,7 +149,7 @@ public class CreatePopulationUtil {
             Double dis = Math.pow((gridCoord.get(oNum).getX() - gridCoord.get(dNum).getX()),2) + Math.pow((gridCoord.get(oNum).getY() - gridCoord.get(dNum).getY()),2);
             dis = Math.pow(dis,0.5);     // 20220330. 坐标已经转为 UTM-50N 投影坐标系
 
-//            判断 OD 的距离，如果 OD 直线距离小于 1 km 大于 20km，则不添加
+//            判断 OD 的距离，如果 OD 直线距离小于 1.2 km 大于 20km，则不添加
             if(dis<=1200 || dis >= 20000){
                 continue;
             }
