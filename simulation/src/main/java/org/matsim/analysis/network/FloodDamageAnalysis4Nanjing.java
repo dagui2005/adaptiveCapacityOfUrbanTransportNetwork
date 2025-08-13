@@ -15,6 +15,13 @@ import java.util.*;
  * 2. 道路网络的间接失效是最大连通子图处理，公交网络（Space L 建模）的间接失效是运营处理。
  */
 public class FloodDamageAnalysis4Nanjing {
+        /**
+     * 主函数，用于分析不同洪水阈值下道路网络和公共交通网络的结构破坏情况。
+     * 程序会读取基线网络和不同洪水场景下的受损网络，统计各类链接数量，
+     * 并将结果写入CSV文件中。
+     *
+     * @param args 命令行参数（未使用）
+     */
     public static void main(String[] args) {
 //        1. create the output file path.
         String writeFilePath = "D:\\【学术】\\【研究生】\\【方向】多模式交通网络韧性-new floods data\\【分析】影响评估\\洪水场景\\【分析】结构破坏相关分析\\linkAnalysis20230221\\network damage for nanjing.csv";
@@ -75,4 +82,5 @@ public class FloodDamageAnalysis4Nanjing {
             e.printStackTrace();
         }
     }
+
 }

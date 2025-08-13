@@ -37,6 +37,8 @@ ax = fig.add_subplot(111)
 plt.tick_params(top='on', right='on', which='both') 
 ax.tick_params(which='major', direction='in') 
 ax.tick_params(which ='minor', direction='in')
+# 修复：在绘图前生成 repeat_trials_r3_mean_df
+repeat_trials_r3_mean_df = nanjing_t3_df.groupby("pt_subsidy").agg('mean').reset_index()
 
 g = sns.regplot(x='pt_split', y='passable_prop', data=repeat_trials_r3_mean_df, ci=95, scatter_kws={'s':80}, color='#66c2a5', ax=ax)
 
@@ -73,6 +75,7 @@ ax = fig.add_subplot(111)
 plt.tick_params(top='on', right='on', which='both') 
 ax.tick_params(which='major', direction='in') 
 ax.tick_params(which ='minor', direction='in')
+repeat_trials_mean_df = nanjing_t5_df.groupby("pt_subsidy").agg('mean').reset_index()
 
 g = sns.regplot(x='pt_split', y='passable_prop', data=repeat_trials_mean_df, scatter_kws={'s':80}, lowess=True, color='#66c2a5', ax=ax)
 

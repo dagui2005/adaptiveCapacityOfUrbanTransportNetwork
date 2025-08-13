@@ -146,8 +146,13 @@
         <dependency>
             <groupId>org.matsim.contrib</groupId>
             <artifactId>sbb-extensions</artifactId>
-            <version>13.0-SNAPSHOT</version>
-            <!-- (replace this with the version of MATSim you are using, such as the current weekly) -->
+            <version>2026.0-2025w26</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.gdal/gdal -->
+        <dependency>
+            <groupId>org.gdal</groupId>
+            <artifactId>gdal</artifactId>
+            <version>3.11.0</version>
         </dependency>
     </dependencies>
 
