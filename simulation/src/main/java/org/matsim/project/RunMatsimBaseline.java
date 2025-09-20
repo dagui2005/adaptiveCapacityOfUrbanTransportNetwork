@@ -30,12 +30,12 @@ import org.matsim.core.scenario.ScenarioUtils;
  * @Description: run the simulation.
  */
 public class RunMatsimBaseline {
-    private static final String configFile = "scenarios/nanjingBaseline/config.xml";
-    private static final String networkFile = "network.xml";
-    private static final String plansFile = "demand.xml";
-    private static final String scheduleFile = "transitSchedule.xml";
-    private static final String vehiclesFile = "transitVehicle.xml";
-    private static final String outputFile = "scenarios/nanjingBaselineOutput";
+    private static final String configFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\config.xml";
+    private static final String networkFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\network.xml";
+    private static final String plansFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\demand.xml";
+    private static final String scheduleFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\transitSchedule.xml";
+    private static final String vehiclesFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\transitVehicle.xml";
+    private static final String outputFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\scenarios/nanjingBaselineOutput";
 
     public static void main(String[] args) {
         Config config = ConfigUtils.loadConfig(configFile);
@@ -85,9 +85,9 @@ public class RunMatsimBaseline {
         config.qsim().setFlowCapFactor(1);
         config.qsim().setStorageCapFactor(1);
 
-        config.global().setNumberOfThreads(48);  // innovative strategies. using the number of available cores.
-        config.qsim().setNumberOfThreads(47);  // parallel qsim.
-        config.parallelEventHandling().setNumberOfThreads(4);  // event handling.
+        config.global().setNumberOfThreads(12);  // innovative strategies. using the number of available cores.
+        config.qsim().setNumberOfThreads(8);  // parallel qsim.
+        config.parallelEventHandling().setNumberOfThreads(6);  // event handling.
 
         Scenario scenario = ScenarioUtils.loadScenario(config);
 
