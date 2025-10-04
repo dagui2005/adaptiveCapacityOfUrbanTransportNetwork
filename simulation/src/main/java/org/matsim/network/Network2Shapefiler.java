@@ -1,5 +1,6 @@
 package org.matsim.network;
 
+import org.geotools.api.feature.simple.SimpleFeature;
 import org.locationtech.jts.geom.Coordinate;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.network.Link;
@@ -12,7 +13,6 @@ import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.core.utils.geometry.geotools.MGC;
 import org.matsim.core.utils.gis.PolylineFeatureFactory;
 import org.matsim.core.utils.gis.ShapeFileWriter;
-import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 import java.util.ArrayList;
@@ -103,11 +103,11 @@ public class Network2Shapefiler {
         Network network = scenario.getNetwork();
         new MatsimNetworkReader(network).readFile(inputNetPath);
 
-        CoordinateReferenceSystem crs = MGC.getCRS(defaultCRS);    // EPSG Code
+        CoordinateReferenceSystem crs = (CoordinateReferenceSystem) MGC.getCRS(defaultCRS);    // EPSG Code
 
         Collection<SimpleFeature> features = new ArrayList<>();
         PolylineFeatureFactory linkFactory = new PolylineFeatureFactory.Builder().
-                setCrs(crs).
+                setCrs((org.geotools.api.referencing.crs.CoordinateReferenceSystem) crs).
                 setName("link").
                 addAttribute("ID", String.class).
                 addAttribute("fromID", String.class).

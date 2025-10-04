@@ -20,7 +20,7 @@ package org.matsim.project;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
-import org.matsim.core.config.groups.PlanCalcScoreConfigGroup;
+import org.matsim.core.config.groups.ScoringConfigGroup;
 import org.matsim.core.controler.Controler;
 import org.matsim.core.controler.OutputDirectoryHierarchy;
 import org.matsim.core.scenario.ScenarioUtils;
@@ -48,19 +48,19 @@ public class RunMatsimBaseline {
         config.transit().setTransitScheduleFile(scheduleFile);
         config.transit().setUseTransit(true);
         config.transit().setVehiclesFile(vehiclesFile);
-        config.controler().setOutputDirectory(outputFile);
-        config.controler().setOverwriteFileSetting(OutputDirectoryHierarchy.OverwriteFileSetting.deleteDirectoryIfExists);
-        config.controler().setLastIteration(50);
-        config.controler().setWriteEventsInterval(50);
+        config.controller().setOutputDirectory(outputFile);
+        config.controller().setOverwriteFileSetting(OutputDirectoryHierarchy.OverwriteFileSetting.deleteDirectoryIfExists);
+        config.controller().setLastIteration(50);
+        config.controller().setWriteEventsInterval(50);
 
         config.changeMode().setModes(new String[] {"car","pt"});
 
-        config.planCalcScore().setPerforming_utils_hr(75);    // Unit time value per capita in Nanjing
-        config.planCalcScore().setMarginalUtilityOfMoney(1);   // The marginal utility of money. Positive.
-        config.planCalcScore().setUtilityOfLineSwitch(-2);
-        config.planCalcScore().setEarlyDeparture_utils_hr(0);
-        config.planCalcScore().setLateArrival_utils_hr(0);
-        PlanCalcScoreConfigGroup.ModeParams ptParams = new PlanCalcScoreConfigGroup.ModeParams("pt");
+        config.scoring().setPerforming_utils_hr(75);    // Unit time value per capita in Nanjing
+        config.scoring().setMarginalUtilityOfMoney(1);   // The marginal utility of money. Positive.
+        config.scoring().setUtilityOfLineSwitch(-2);
+        config.scoring().setEarlyDeparture_utils_hr(0);
+        config.scoring().setLateArrival_utils_hr(0);
+        ScoringConfigGroup.ModeParams ptParams = new ScoringConfigGroup.ModeParams("pt");
         ptParams.setConstant(-2.5);   // "[utils] mode-specific constant. Normally per trip, but that is probably buggy for multi-leg trips."
         ptParams.setMarginalUtilityOfDistance(0);   // [unit / m]  the marginal utility of distance.
         ptParams.setMarginalUtilityOfTraveling(0);   // [unit / hr] the direct marginal utility of time spent travelling by mode.
@@ -68,7 +68,7 @@ public class RunMatsimBaseline {
         ptParams.setDailyUtilityConstant(0);  // [unit / day]
         ptParams.setDailyMonetaryConstant(0);   // [money / day]
         ptParams.setMarginalUtilityOfTraveling(-15);
-        PlanCalcScoreConfigGroup.ModeParams carParmas = new PlanCalcScoreConfigGroup.ModeParams("car");
+        ScoringConfigGroup.ModeParams carParmas = new ScoringConfigGroup.ModeParams("car");
 
         carParmas.setConstant(-80);
 
@@ -78,8 +78,8 @@ public class RunMatsimBaseline {
         carParmas.setDailyMonetaryConstant(0);
         carParmas.setDailyUtilityConstant(0);
 
-        config.planCalcScore().addParameterSet(ptParams);
-        config.planCalcScore().addParameterSet(carParmas);
+        config.scoring().addParameterSet(ptParams);
+        config.scoring().addParameterSet(carParmas);
 
         config.counts().setCountsScaleFactor(100);
         config.qsim().setFlowCapFactor(1);
@@ -87,7 +87,7 @@ public class RunMatsimBaseline {
 
         config.global().setNumberOfThreads(12);  // innovative strategies. using the number of available cores.
         config.qsim().setNumberOfThreads(8);  // parallel qsim.
-        config.parallelEventHandling().setNumberOfThreads(6);  // event handling.
+        config.eventsManager().setNumberOfThreads(6);  // event handling.
 
         Scenario scenario = ScenarioUtils.loadScenario(config);
 

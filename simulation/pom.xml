@@ -11,7 +11,7 @@
 
     <properties>
         <!-- release -->
-        <matsim.version>13.0</matsim.version>
+        <matsim.version>2026.0-2025w38</matsim.version>
 
         <!-- smapshot -->
         <!--<matsim.version>14.0-SNAPSHOT</matsim.version>-->
@@ -34,8 +34,23 @@
             <id>osgeo</id>
             <name>Geotools repository</name>
             <!-- <url>http://download.osgeo.org/webdav/geotools</url> -->
-            <url>https://repo.osgeo.org/repository/release/</url>
+<!--            <url>https://repo.osgeo.org/repository/release/</url>-->
+            <url>https://repo.osgeo.org/repository/geotools-releases/</url>
         </repository>
+        <repository>
+            <id>osgeo</id>
+            <name>OSGeo Release Repository</name>
+<!--            <url>https://repo.osgeo.org/repository/release/</url>-->
+            <url>https://repo.osgeo.org/repository/geotools-releases/</url>
+
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+        </repository>
+
         <repository>
             <!-- Repository for MATSim (MATSim is not on Maven central, releases and snapshots) -->
             <id>matsim</id>
@@ -154,6 +169,60 @@
             <artifactId>gdal</artifactId>
             <version>3.11.0</version>
         </dependency>
+        <!-- GeoTools dependencies -->
+        <!-- https://mvnrepository.com/artifact/org.geotools/gt-main -->
+        <!-- GeoTools dependencies -->
+        <!-- https://mvnrepository.com/artifact/org.geotools/gt-main -->
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-main</artifactId>
+            <version>29.0</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.geotools/gt-shapefile -->
+        <!-- https://mvnrepository.com/artifact/org.geotools/gt-shapefile -->
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-shapefile</artifactId>
+            <version>29.0</version>
+            <scope>compile</scope>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.geotools/gt-geojson -->
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-geojson</artifactId>
+            <version>29.0</version>
+        </dependency>
+        <!-- GeoTools dependencies -->
+        <!-- https://mvnrepository.com/artifact/org.geotools/gt-geometry -->
+<!--        <dependency>-->
+<!--            <groupId>org.geotools</groupId>-->
+<!--            <artifactId>gt-geometry</artifactId>-->
+<!--            <version>29.0</version>-->
+<!--        </dependency>-->
+        <!-- 添加 gt-api 依赖，包含 org.opengis.feature.simple.SimpleFeature -->
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-api</artifactId>
+            <version>30.0</version>
+        </dependency>
+        <!-- GeoTools EPSG HSQL for CRS support (optional but recommended) -->
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-epsg-hsql</artifactId>
+            <version>29.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-opengis</artifactId> <!-- 添加此关键依赖 -->
+            <version>29.0</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.opengis/geoapi -->
+        <!-- https://mvnrepository.com/artifact/org.opengis/geoapi -->
+<!--        <dependency>-->
+<!--            <groupId>org.opengis</groupId>-->
+<!--            <artifactId>geoapi</artifactId>-->
+<!--            <version>3.0.2</version>-->
+<!--        </dependency>-->
     </dependencies>
 
     <build>
