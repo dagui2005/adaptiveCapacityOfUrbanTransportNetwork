@@ -3,9 +3,11 @@ package org.matsim.network;
 import org.geotools.data.DataStore;
 import org.geotools.data.DataStoreFinder;
 import org.geotools.data.simple.SimpleFeatureSource;
+import org.matsim.api.core.v01.Coord;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.network.Network;
+import org.matsim.api.core.v01.network.Link;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.network.io.MatsimNetworkReader;
@@ -20,6 +22,7 @@ import org.matsim.vehicles.*;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 /**
  * TransitBuilder
@@ -53,31 +56,35 @@ public class TransitBuilder {
     private static long ptNodeId = 1;
 
     public static void main(String[] args) throws Exception {
-        // === 1. 读取 road network ===
-        Config config = ConfigUtils.createConfig();
-        Scenario scenario = ScenarioUtils.createScenario(config);
-        new MatsimNetworkReader(scenario.getNetwork()).readFile(INPUT_NETWORK);
-        Network network = scenario.getNetwork();
+        // Step1: 载入 road network
+        // Config config = ConfigUtils.createConfig();
+        // Scenario scenario = ScenarioUtils.createScenario(config);
+        // new MatsimNetworkReader(scenario.getNetwork()).readFile(INPUT_NETWORK);
+        // Network network = scenario.getNetwork();
+        var result = NetworkLoader.loadNetwork(INPUT_NETWORK);
+        var network = result.network;
         System.out.println("✅ Road network loaded: " + network.getLinks().size() + " links");
 
-        // === 2. 读取 shapefile 数据 ===
-        SimpleFeatureSource busStops = loadShp(BUSSTOP_SHP);
-        SimpleFeatureSource busLines = loadShp(BUSLINE_SHP);
-        SimpleFeatureSource busStopsMerged = loadShp(BUSSTOP_MERGED_SHP);
+        // === 2. 处理公交线路，匹配到 network link ===
+
+//        SimpleFeatureSource busStops = loadShp(BUSSTOP_SHP);
+//        SimpleFeatureSource busLines = loadShp(BUSLINE_SHP);
+//        SimpleFeatureSource busStopsMerged = loadShp(BUSSTOP_MERGED_SHP);
         SimpleFeatureSource metroLines = loadShp(METRO_LINES_SHP);
         SimpleFeatureSource metroStations = loadShp(METRO_STATIONS_SHP);
+        // Step2: 集成公交
+        BusNetworkIntegrator busIntegrator = new BusNetworkIntegrator(network, 5.0, 50.0);
+        busIntegrator.integrateBusLines(BUSSTOP_SHP, BUSLINE_SHP);
 
-        // === 3. 处理公交线路，匹配到 network link ===
-        // TODO: 遍历 busLines，每条 line_name → 对应 busStops 中的多个点
-        // TODO: 顺序排列，寻找 network link 序列，必要时补充 link
-        // TODO: 已匹配 link 设置 modes="car,bus"，补充 link modes="bus,artificial"
+        Map<String, List<Id<Link>>> linePaths = busIntegrator.getLineLinkPaths();
+        Map<String, Id<Link>> stopToLink = busIntegrator.getStopToLinkMapping();
 
-        // === 4. 处理地铁线路 ===
+        // === 3. 处理地铁线路 ===
         // TODO: 遍历 metroLines 按 FlD_road 分组，拼接为 link 序列
         // TODO: 生成双向 link，属性设定
         // TODO: metroStations 坐标查找/生成 node
 
-        // === 5. 生成 transitSchedule.xml ===
+        // === 4. 生成 transitSchedule.xml ===
         TransitScheduleFactory tsFactory = new TransitScheduleFactoryImpl();
         TransitSchedule schedule = tsFactory.createTransitSchedule();
 
