@@ -7,7 +7,10 @@ import org.geotools.data.simple.SimpleFeatureIterator;
 import org.locationtech.jts.geom.*;
 import org.matsim.api.core.v01.*;
 import org.matsim.api.core.v01.network.*;
+import org.matsim.core.router.speedy.SpeedyGraph;
 import org.opengis.feature.simple.SimpleFeature;
+import org.matsim.core.router.costcalculators.*;
+import org.matsim.core.router.util.*;
 
 import java.io.File;
 import java.util.*;
@@ -187,12 +190,44 @@ public class BusNetworkIntegrator {
     }
 
     /**
-     * 假的 Dijkstra（请替换为真实实现）
+     * 真实 Dijkstra 实现：使用 MATSim 内置最短路径搜索
+     */
+    /**
+     * 真实 Dijkstra 实现：使用 MATSim 内置最短路径搜索
      */
     private List<Link> runDijkstra(Node fromNode, Node toNode) {
-        // TODO: 使用MATSim的Dijkstra或者AStar实现
-        return new ArrayList<>();
+        if (fromNode == null || toNode == null) return Collections.emptyList();
+
+        // 1. 建立最短路径搜索上下文
+        TravelTime travelTime = (link, time, person, vehicle) -> link.getLength() / link.getFreespeed();
+        TravelDisutility travelDisutility = new OnlyTimeDependentTravelDisutility(travelTime);
+
+        // 2. 使用 FastDijkstra 替代不存在的 Dijkstra 类
+        LeastCostPathCalculator router = new org.matsim.core.router.speedy.SpeedyDijkstra(
+                (SpeedyGraph) network,
+                travelTime,
+                travelDisutility
+
+        );
+
+        // 3. 执行路径搜索
+        LeastCostPathCalculator.Path path = router.calcLeastCostPath(
+                fromNode,
+                toNode,
+                0,         // start time
+                null,      // person
+                null       // vehicle
+        );
+
+        // 4. 返回 Link 序列
+        if (path == null || path.links == null || path.links.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return new ArrayList<>(path.links);
     }
+
+
 
     // ===== 读取公交站点 =====
     private Map<String, Coordinate> readBusStops(String shpPath) throws Exception {
