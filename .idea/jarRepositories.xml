@@ -52,6 +52,11 @@
       <option name="url" value="https://repo.osgeo.org/repository/release/" />
     </remote-repository>
     <remote-repository>
+      <option name="id" value="osgeo" />
+      <option name="name" value="OSGeo Release Repository" />
+      <option name="url" value="https://repo.boundlessgeo.com/main/" />
+    </remote-repository>
+    <remote-repository>
       <option name="id" value="slimjars" />
       <option name="name" value="slimjars" />
       <option name="url" value="https://mvn.slimjars.com" />

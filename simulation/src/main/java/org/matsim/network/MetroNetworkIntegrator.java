@@ -3,6 +3,13 @@ package org.matsim.network;
 import org.geotools.data.FileDataStore;
 import org.geotools.data.FileDataStoreFinder;
 import org.geotools.data.simple.SimpleFeatureIterator;
+import org.geotools.referencing.CRS;
+import org.geotools.data.simple.SimpleFeatureSource;
+import org.geotools.data.simple.SimpleFeatureCollection;
+
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.opengis.referencing.operation.MathTransform;
+import org.geotools.geometry.jts.JTS;
 import org.locationtech.jts.geom.*;
 import org.matsim.api.core.v01.Coord;
 import org.matsim.api.core.v01.Id;
@@ -14,7 +21,6 @@ import org.opengis.feature.simple.SimpleFeature;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
-
 /**
  * MetroNetworkIntegrator - 集成版（将地铁写入传入的 MATSim Network 并返回每条链的 linkId 列表）
  *
@@ -35,8 +41,16 @@ public class MetroNetworkIntegrator {
     private final Map<String, String> stationPoiidByCoordKey = new HashMap<>();
     private final Map<String, String> stationNameByPoiid = new HashMap<>();
 
-    public MetroNetworkIntegrator(int coordDecimal) {
+    private String networkCRS = null;
+    private MathTransform transformToNetworkCRS = null;
+
+    // 在 MetroNetworkIntegrator 类中添加字段
+    private Map<String, Id<Link>> ptToLink = new HashMap<>(); // 存储地铁站点到link的映射
+    private List<SimpleFeature> metroStations = new ArrayList<>(); // 存储地铁站点数据
+
+    public MetroNetworkIntegrator(int coordDecimal, String networkCRS) {
         this.coordDecimal = Math.max(0, coordDecimal);
+        this.networkCRS = networkCRS;
     }
 
     /**
@@ -57,20 +71,24 @@ public class MetroNetworkIntegrator {
             loadStations(stationShp);
             System.out.println("Loaded station POI mappings: " + stationPoiidByCoordKey.size());
         }
-
-        // 2) read lines.shp and group by FlD_road
+        // 添加：加载地铁站点用于后续匹配
+        loadMetroStations(stationShp);
+        // 2) read lines.shp and group by FID_road
         Map<String, List<SimpleFeature>> groups = new LinkedHashMap<>();
         FileDataStore store = FileDataStoreFinder.getDataStore(new File(linesShp));
-        try (SimpleFeatureIterator it = store.getFeatureSource().getFeatures().features()) {
+        SimpleFeatureSource featureSource = store.getFeatureSource();
+        setupCoordinateTransform(featureSource); // 设置坐标转换
+
+        try (SimpleFeatureIterator it = featureSource.getFeatures().features()) {
             while (it.hasNext()) {
                 SimpleFeature f = it.next();
-                Object fld = f.getAttribute("FlD_road");
-                String key = (fld != null) ? fld.toString() : "NO_FLD";
+                Object fld = f.getAttribute("FID_road");
+                String key = (fld != null) ? fld.toString() : "NO_FID";
                 groups.computeIfAbsent(key, k -> new ArrayList<>()).add(f);
             }
         }
 
-        System.out.println("Found FlD_road groups: " + groups.size());
+        System.out.println("Found FID_road groups: " + groups.size());
 
         // 3) for each group, build segments and chain them
         for (Map.Entry<String, List<SimpleFeature>> entry : groups.entrySet()) {
@@ -78,83 +96,145 @@ public class MetroNetworkIntegrator {
             List<SimpleFeature> feats = entry.getValue();
             if (feats.isEmpty()) continue;
 
-            List<SegmentRecord> segments = new ArrayList<>();
-            for (SimpleFeature f : feats) {
-                Geometry g = (Geometry) f.getDefaultGeometry();
-                LineString ls = null;
-                if (g instanceof LineString) ls = (LineString) g;
-                else if (g instanceof MultiLineString) {
-                    MultiLineString mls = (MultiLineString) g;
-                    if (mls.getNumGeometries() > 0) ls = (LineString) mls.getGeometryN(0);
+            // 特殊处理 FID_road=0 的情况：每个线段作为独立线路处理
+            if ("0".equals(fldKey)) {
+                int chainIdx = 0;
+                for (SimpleFeature f : feats) {
+                    chainIdx++;
+
+                    // 创建单个线段的特征列表
+                    List<SimpleFeature> singleSegmentList = Collections.singletonList(f);
+                    List<SegmentRecord> segments = createSegmentsFromFeatures(singleSegmentList);
+
+                    if (!segments.isEmpty()) {
+                        // 对于 FID_road=0，每个线段就是一个独立的 chain
+                        List<Id<Link>> forwardIds = new ArrayList<>();
+                        List<Id<Link>> reverseIds = new ArrayList<>();
+
+                        SegmentRecord seg = segments.get(0);
+
+                        // create or get node ids (and add nodes to network if absent)
+                        String fromNodeIdStr = createOrGetNodeId(network, seg.a);
+                        String toNodeIdStr = createOrGetNodeId(network, seg.b);
+
+                        Id<Node> fromNodeId = Id.createNodeId(fromNodeIdStr);
+                        Id<Node> toNodeId = Id.createNodeId(toNodeIdStr);
+
+                        Node fromNode = network.getNodes().get(fromNodeId);
+                        Node toNode = network.getNodes().get(toNodeId);
+
+                        // forward link id
+                        String lkId = createLkptId();
+                        Id<Link> lkIdObj = Id.createLinkId(lkId);
+                        org.matsim.api.core.v01.network.Link link =
+                                network.getFactory().createLink(lkIdObj, fromNode, toNode);
+                        link.setLength(seg.shapeLen);
+                        link.setFreespeed(27.77777777777778);
+                        link.setCapacity(9999.0);
+                        try {
+                            link.setNumberOfLanes(1.0);
+                        } catch (Throwable ignored) { }
+                        Set<String> modes = new HashSet<>();
+                        modes.add("pt");
+                        link.setAllowedModes(modes);
+                        network.addLink(link);
+                        forwardIds.add(lkIdObj);
+
+                        // reverse link id
+                        String revId = createLkptId();
+                        Id<Link> revIdObj = Id.createLinkId(revId);
+                        org.matsim.api.core.v01.network.Link revLink =
+                                network.getFactory().createLink(revIdObj, toNode, fromNode);
+                        revLink.setLength(seg.shapeLen);
+                        revLink.setFreespeed(27.77777777777778);
+                        revLink.setCapacity(9999.0);
+                        try { revLink.setNumberOfLanes(1.0); } catch (Throwable ignored) { }
+                        Set<String> revModes = new HashSet<>();
+                        revModes.add("pt");
+                        revLink.setAllowedModes(revModes);
+                        network.addLink(revLink);
+                        reverseIds.add(0, revIdObj);
+
+                        String baseKey = "FLD_" + fldKey + "_chain" + chainIdx;
+                        result.put(baseKey + "_fwd", forwardIds);
+                        result.put(baseKey + "_rev", reverseIds);
+
+                        // 添加地铁站点匹配逻辑
+                        matchStationsToChain(Collections.singletonList(seg), forwardIds, fldKey, chainIdx);
+
+                        System.out.println("Added independent segment for FID_road=0 (chain#" + chainIdx + ")");
+                    }
                 }
-                if (ls == null) continue;
-                Coordinate a = ls.getCoordinateN(0);
-                Coordinate b = ls.getCoordinateN(ls.getNumPoints() - 1);
-                double shapeLen = parseDoubleProperty(f.getAttribute("Shape_Leng"), a.distance(b));
-                segments.add(new SegmentRecord(a, b, shapeLen, f));
-            }
-            if (segments.isEmpty()) continue;
+            } else {
+                // 处理其他 FID_road 值的情况（正常合并逻辑）
+                List<SegmentRecord> segments = createSegmentsFromFeatures(feats);
+                if (segments.isEmpty()) continue;
 
-            List<List<SegmentRecord>> chains = buildChainsFromSegments(segments);
-            int chainIdx = 0;
-            for (List<SegmentRecord> chain : chains) {
-                chainIdx++;
+                List<List<SegmentRecord>> chains = buildChainsFromSegments(segments);
+                int chainIdx = 0;
+                for (List<SegmentRecord> chain : chains) {
+                    chainIdx++;
 
-                // prepare containers of link ids for this chain
-                List<Id<Link>> forwardIds = new ArrayList<>();
-                List<Id<Link>> reverseIds = new ArrayList<>();
+                    // prepare containers of link ids for this chain
+                    List<Id<Link>> forwardIds = new ArrayList<>();
+                    List<Id<Link>> reverseIds = new ArrayList<>();
 
-                // create links for each segment (forward and reverse)
-                for (SegmentRecord seg : chain) {
-                    // create or get node ids (and add nodes to network if absent)
-                    String fromNodeIdStr = createOrGetNodeId(network, seg.a);
-                    String toNodeIdStr = createOrGetNodeId(network, seg.b);
+                    // create links for each segment (forward and reverse)
+                    for (SegmentRecord seg : chain) {
+                        // create or get node ids (and add nodes to network if absent)
+                        String fromNodeIdStr = createOrGetNodeId(network, seg.a);
+                        String toNodeIdStr = createOrGetNodeId(network, seg.b);
 
-                    Id<Node> fromNodeId = Id.createNodeId(fromNodeIdStr);
-                    Id<Node> toNodeId = Id.createNodeId(toNodeIdStr);
+                        Id<Node> fromNodeId = Id.createNodeId(fromNodeIdStr);
+                        Id<Node> toNodeId = Id.createNodeId(toNodeIdStr);
 
-                    Node fromNode = network.getNodes().get(fromNodeId);
-                    Node toNode = network.getNodes().get(toNodeId);
+                        Node fromNode = network.getNodes().get(fromNodeId);
+                        Node toNode = network.getNodes().get(toNodeId);
 
-                    // forward link id
-                    String lkId = createLkptId();
-                    Id<Link> lkIdObj = Id.createLinkId(lkId);
-                    org.matsim.api.core.v01.network.Link link =
-                            network.getFactory().createLink(lkIdObj, fromNode, toNode);
-                    link.setLength(seg.shapeLen);
-                    link.setFreespeed(27.77777777777778);
-                    link.setCapacity(9999.0);
-                    // numberOfLanes may accept double via setNumberOfLanes(double) in some versions
-                    try {
-                        // setNumberOfLanes exists in many MATSim versions (double)
-                        link.setNumberOfLanes(1.0);
-                    } catch (Throwable ignored) { }
-                    // store modes as attribute (safer across MATSim versions)
-                    link.getAttributes().putAttribute("modes", "pt");
-                    network.addLink(link);
-                    forwardIds.add(lkIdObj);
+                        // forward link id
+                        String lkId = createLkptId();
+                        Id<Link> lkIdObj = Id.createLinkId(lkId);
+                        org.matsim.api.core.v01.network.Link link =
+                                network.getFactory().createLink(lkIdObj, fromNode, toNode);
+                        link.setLength(seg.shapeLen);
+                        link.setFreespeed(27.77777777777778);
+                        link.setCapacity(9999.0);
+                        try {
+                            link.setNumberOfLanes(1.0);
+                        } catch (Throwable ignored) { }
+                        Set<String> modes = new HashSet<>();
+                        modes.add("pt");
+                        link.setAllowedModes(modes);
+                        network.addLink(link);
+                        forwardIds.add(lkIdObj);
 
-                    // reverse link id
-                    String revId = createLkptId();
-                    Id<Link> revIdObj = Id.createLinkId(revId);
-                    org.matsim.api.core.v01.network.Link revLink =
-                            network.getFactory().createLink(revIdObj, toNode, fromNode);
-                    revLink.setLength(seg.shapeLen);
-                    revLink.setFreespeed(27.77777777777778);
-                    revLink.setCapacity(9999.0);
-                    try { revLink.setNumberOfLanes(1.0); } catch (Throwable ignored) { }
-                    revLink.getAttributes().putAttribute("modes", "pt");
-                    network.addLink(revLink);
-                    // For reverse path order, we will add rev link ids at front so that rev list corresponds to reverse travel order
-                    reverseIds.add(0, revIdObj);
+                        // reverse link id
+                        String revId = createLkptId();
+                        Id<Link> revIdObj = Id.createLinkId(revId);
+                        org.matsim.api.core.v01.network.Link revLink =
+                                network.getFactory().createLink(revIdObj, toNode, fromNode);
+                        revLink.setLength(seg.shapeLen);
+                        revLink.setFreespeed(27.77777777777778);
+                        revLink.setCapacity(9999.0);
+                        try { revLink.setNumberOfLanes(1.0); } catch (Throwable ignored) { }
+                        Set<String> revModes = new HashSet<>();
+                        revModes.add("pt");
+                        revLink.setAllowedModes(revModes);
+                        network.addLink(revLink);
+                        reverseIds.add(0, revIdObj);
+                    }
+
+                    String baseKey = "FLD_" + fldKey + "_chain" + chainIdx;
+                    result.put(baseKey + "_fwd", forwardIds);
+                    result.put(baseKey + "_rev", reverseIds);
+
+                    // 添加地铁站点匹配逻辑（正向）
+                    matchStationsToChain(chain, forwardIds, fldKey, chainIdx);
+                    // 添加地铁站点匹配逻辑（反向）
+                    matchStationsToChainReverse(chain, reverseIds, fldKey, chainIdx);
+
+                    System.out.println("Added chain for group " + fldKey + " (chain#" + chainIdx + ") forwardLinks=" + forwardIds.size());
                 }
-
-                // store in result map with keys naming the group + chain index
-                String baseKey = "FLD_" + fldKey + "_chain" + chainIdx;
-                result.put(baseKey + "_fwd", forwardIds);
-                result.put(baseKey + "_rev", reverseIds);
-
-                System.out.println("Added chain for group " + fldKey + " (chain#" + chainIdx + ") forwardLinks=" + forwardIds.size());
             }
         }
 
@@ -173,6 +253,155 @@ public class MetroNetworkIntegrator {
             this.shapeLen = shapeLen;
             this.feature = feature;
         }
+    }
+
+    // 在 MetroNetworkIntegrator 类中添加方法
+    private void matchStationsToChain(List<SegmentRecord> chain, List<Id<Link>> forwardIds, String fldKey, int chainIdx) {
+        if (chain.isEmpty() || forwardIds.isEmpty() || metroStations.isEmpty()) return;
+
+        // 获取链的起点和终点
+        Coordinate chainStart = chain.get(0).a;
+        Coordinate chainEnd = chain.get(chain.size() - 1).b;
+
+        // 为每个地铁站点检查是否匹配到链的端点
+        for (SimpleFeature station : metroStations) {
+            Geometry geom = (Geometry) station.getDefaultGeometry();
+            if (!(geom instanceof Point)) continue;
+
+            Coordinate stationCoord = transformCoordinate(geom.getCoordinate());
+            Object poiidObj = station.getAttribute("POIID");
+            if (poiidObj == null) continue;
+
+            String poiid = poiidObj.toString();
+            boolean alreadyMatched = false; // 添加标志避免重复匹配
+
+            // 检查是否匹配起点（5米阈值）
+            if (stationCoord.distance(chainStart) <= 5.0 && !alreadyMatched) {
+                String ptId = poiid + "X" + fldKey + "_" + chainIdx + "_start";
+                if (!ptToLink.containsKey(ptId) && !forwardIds.isEmpty()) {
+                    ptToLink.put(ptId, forwardIds.get(0));
+                    System.out.println("Matched station " + poiid + " to chain start, link: " + forwardIds.get(0));
+                    alreadyMatched = true;
+                }
+            }
+
+            // 检查是否匹配终点（5米阈值）
+            if (stationCoord.distance(chainEnd) <= 5.0 && !alreadyMatched) {
+                String ptId = poiid + "X" + fldKey + "_" + chainIdx + "_end";
+                if (!ptToLink.containsKey(ptId) && !forwardIds.isEmpty()) {
+                    ptToLink.put(ptId, forwardIds.get(forwardIds.size() - 1));
+                    System.out.println("Matched station " + poiid + " to chain end, link: " + forwardIds.get(forwardIds.size() - 1));
+                    alreadyMatched = true;
+                }
+            }
+
+            // 检查是否匹配中间的任何链接点（仅当尚未匹配时）
+            if (!alreadyMatched) {
+                for (int i = 0; i < chain.size(); i++) {
+                    Coordinate segmentStart = chain.get(i).a;
+                    Coordinate segmentEnd = chain.get(i).b;
+
+                    // 检查站点是否在线段附近
+                    LineSegment segment = new LineSegment(segmentStart, segmentEnd);
+                    if (segment.distance(stationCoord) <= 5.0) {
+                        String ptId = poiid + "X" + fldKey + "_" + chainIdx + "_mid_" + i;
+                        // 找到该线段对应的链接
+                        if (i < forwardIds.size()) {
+                            Id<Link> linkId = forwardIds.get(i);
+                            if (!ptToLink.containsKey(ptId)) {
+                                ptToLink.put(ptId, linkId);
+                                System.out.println("Matched station " + poiid + " to chain segment " + i + ", link: " + linkId);
+                            }
+                        }
+                        break; // 找到匹配就退出，避免重复匹配
+                    }
+                }
+            }
+        }
+    }
+
+    // 添加反向线路的站点匹配方法
+    private void matchStationsToChainReverse(List<SegmentRecord> chain, List<Id<Link>> reverseIds, String fldKey, int chainIdx) {
+        if (chain.isEmpty() || reverseIds.isEmpty() || metroStations.isEmpty()) return;
+
+        // 获取链的起点和终点（注意：反向线路的起点和终点与正向相反）
+        Coordinate chainStart = chain.get(chain.size() - 1).b; // 反向线路的起点是正向线路的终点
+        Coordinate chainEnd = chain.get(0).a; // 反向线路的终点是正向线路的起点
+
+        // 为每个地铁站点检查是否匹配到链的端点
+        for (SimpleFeature station : metroStations) {
+            Geometry geom = (Geometry) station.getDefaultGeometry();
+            if (!(geom instanceof Point)) continue;
+
+            Coordinate stationCoord = transformCoordinate(geom.getCoordinate());
+            Object poiidObj = station.getAttribute("POIID");
+            if (poiidObj == null) continue;
+
+            String poiid = poiidObj.toString();
+            boolean alreadyMatched = false; // 添加标志避免重复匹配
+
+            // 检查是否匹配起点（5米阈值）
+            if (stationCoord.distance(chainStart) <= 5.0 && !alreadyMatched) {
+                String ptId = poiid + "X" + fldKey + "_" + chainIdx + "_rev_start";
+                if (!ptToLink.containsKey(ptId) && !reverseIds.isEmpty()) {
+                    ptToLink.put(ptId, reverseIds.get(0));
+                    System.out.println("Matched station " + poiid + " to reverse chain start, link: " + reverseIds.get(0));
+                    alreadyMatched = true;
+                }
+            }
+
+            // 检查是否匹配终点（5米阈值）
+            if (stationCoord.distance(chainEnd) <= 5.0 && !alreadyMatched) {
+                String ptId = poiid + "X" + fldKey + "_" + chainIdx + "_rev_end";
+                if (!ptToLink.containsKey(ptId) && !reverseIds.isEmpty()) {
+                    ptToLink.put(ptId, reverseIds.get(reverseIds.size() - 1));
+                    System.out.println("Matched station " + poiid + " to reverse chain end, link: " + reverseIds.get(reverseIds.size() - 1));
+                    alreadyMatched = true;
+                }
+            }
+            // 添加中间站点匹配逻辑
+            if (!alreadyMatched) {
+                for (int i = 0; i < chain.size(); i++) {
+                    Coordinate segmentStart = chain.get(i).a;
+                    Coordinate segmentEnd = chain.get(i).b;
+
+                    // 检查站点是否在线段附近
+                    LineSegment segment = new LineSegment(segmentStart, segmentEnd);
+                    if (segment.distance(stationCoord) <= 5.0) {
+                        String ptId = poiid + "X" + fldKey + "_" + chainIdx + "_rev_mid_" + i;
+                        // 找到该线段对应的链接（注意反向线路的链接顺序）
+                        int reverseIndex = reverseIds.size() - 1 - i;
+                        if (reverseIndex >= 0 && reverseIndex < reverseIds.size()) {
+                            Id<Link> linkId = reverseIds.get(reverseIndex);
+                            if (!ptToLink.containsKey(ptId)) {
+                                ptToLink.put(ptId, linkId);
+                                System.out.println("Matched station " + poiid + " to reverse chain segment " + i + ", link: " + linkId);
+                            }
+                        }
+                        break; // 找到匹配就退出，避免重复匹配
+                    }
+                }
+            }
+        }
+    }
+
+    private List<SegmentRecord> createSegmentsFromFeatures(List<SimpleFeature> feats) {
+        List<SegmentRecord> segments = new ArrayList<>();
+        for (SimpleFeature f : feats) {
+            Geometry g = (Geometry) f.getDefaultGeometry();
+            LineString ls = null;
+            if (g instanceof LineString) ls = (LineString) g;
+            else if (g instanceof MultiLineString) {
+                MultiLineString mls = (MultiLineString) g;
+                if (mls.getNumGeometries() > 0) ls = (LineString) mls.getGeometryN(0);
+            }
+            if (ls == null) continue;
+            Coordinate a = transformCoordinate(ls.getCoordinateN(0)); // 应用坐标转换
+            Coordinate b = transformCoordinate(ls.getCoordinateN(ls.getNumPoints() - 1)); // 应用坐标转换
+            double shapeLen = parseDoubleProperty(f.getAttribute("Shape_Le_1"), a.distance(b));
+            segments.add(new SegmentRecord(a, b, shapeLen, f));
+        }
+        return segments;
     }
 
     private List<List<SegmentRecord>> buildChainsFromSegments(List<SegmentRecord> segments) {
@@ -244,6 +473,23 @@ public class MetroNetworkIntegrator {
         return chains;
     }
 
+    // 添加加载地铁站点的方法
+    private void loadMetroStations(String stationShp) throws IOException {
+        if (stationShp == null || stationShp.isEmpty()) return;
+
+        FileDataStore store = FileDataStoreFinder.getDataStore(new File(stationShp));
+        SimpleFeatureSource featureSource = store.getFeatureSource();
+
+        try (SimpleFeatureIterator it = featureSource.getFeatures().features()) {
+            while (it.hasNext()) {
+                SimpleFeature f = it.next();
+                metroStations.add(f);
+            }
+        }
+
+        System.out.println("Loaded metro stations: " + metroStations.size());
+    }
+
     // create or reuse node in network; node id uses NDPT + POIID if matched, else NDPT + counter
     private String createOrGetNodeId(Network network, Coordinate c) {
         String key = coordKey(c);
@@ -293,12 +539,16 @@ public class MetroNetworkIntegrator {
     // load station shp to build mapping: roundedCoord -> POIID and POIID->STATION_NA
     private void loadStations(String stationShp) throws IOException {
         FileDataStore store = FileDataStoreFinder.getDataStore(new File(stationShp));
-        try (SimpleFeatureIterator it = store.getFeatureSource().getFeatures().features()) {
+        SimpleFeatureSource featureSource = store.getFeatureSource();
+        MathTransform originalTransform = this.transformToNetworkCRS; // 保存原始转换
+        setupCoordinateTransform(featureSource); // 设置新的坐标转换
+
+        try (SimpleFeatureIterator it = featureSource.getFeatures().features()) {
             while (it.hasNext()) {
                 SimpleFeature f = it.next();
                 Geometry g = (Geometry) f.getDefaultGeometry();
                 if (!(g instanceof Point)) continue;
-                Coordinate c = g.getCoordinate();
+                Coordinate c = transformCoordinate(g.getCoordinate()); // 应用坐标转换
                 Object poiidObj = f.getAttribute("POIID");
                 Object nameObj = f.getAttribute("STATION_NA");
                 if (poiidObj == null) continue;
@@ -309,25 +559,48 @@ public class MetroNetworkIntegrator {
                 stationNameByPoiid.put(poiid, name);
             }
         }
-    }
 
-    // sample main for quick test - writes network to disk after integration
-    public static void main(String[] args) throws Exception {
-        if (args.length < 3) {
-            System.out.println("Usage: MetroNetworkIntegrator <lines.shp> <station.shp> <outNetwork.xml>");
+        this.transformToNetworkCRS = originalTransform; // 恢复原始转换
+    }
+    // 添加坐标转换方法
+    private void setupCoordinateTransform(SimpleFeatureSource featureSource) {
+        if (networkCRS == null || networkCRS.isEmpty()) {
             return;
         }
-        String lines = args[0];
-        String stations = args[1];
-        String out = args[2];
 
-        // create an empty MATSim network and call integrator
-        Network network = org.matsim.core.network.NetworkUtils.createNetwork();
-        MetroNetworkIntegrator integrator = new MetroNetworkIntegrator(5);
-        Map<String, List<Id<Link>>> map = integrator.buildNetworkFromShp(lines, stations, network);
+        try {
+            // 获取 shapefile 的 CRS
+            SimpleFeatureCollection features = featureSource.getFeatures();
+            CoordinateReferenceSystem sourceCRS = features.getSchema().getCoordinateReferenceSystem();
 
-        // write final network
-        new org.matsim.core.network.io.NetworkWriter(network).write(out);
-        System.out.println("Wrote network to " + out + ". Created metro line entries: " + map.keySet().size());
+            if (sourceCRS == null) {
+                // 如果 shapefile 没有 CRS，则假定为 WGS84 (经纬度)
+                sourceCRS = CRS.decode("EPSG:4326");
+            }
+
+            CoordinateReferenceSystem targetCRS = CRS.decode(networkCRS);
+            this.transformToNetworkCRS = CRS.findMathTransform(sourceCRS, targetCRS, true);
+        } catch (Exception e) {
+            System.err.println("Warning: Failed to setup CRS transformation: " + e.getMessage());
+        }
+    }
+
+    // 添加坐标转换方法
+    private Coordinate transformCoordinate(Coordinate coord) {
+        if (transformToNetworkCRS != null) {
+            try {
+                org.locationtech.jts.geom.Coordinate sourceCoord = new org.locationtech.jts.geom.Coordinate(coord.x, coord.y);
+                org.locationtech.jts.geom.Coordinate targetCoord = JTS.transform(sourceCoord, null, transformToNetworkCRS);
+                return new Coordinate(targetCoord.x, targetCoord.y);
+            } catch (Exception e) {
+                System.err.println("Warning: Failed to transform coordinate: " + e.getMessage());
+            }
+        }
+        return coord;
+    }
+
+    // 在 MetroNetworkIntegrator 类中添加公共方法
+    public Map<String, Id<Link>> getPtToLinkMapping() {
+        return ptToLink;
     }
 }

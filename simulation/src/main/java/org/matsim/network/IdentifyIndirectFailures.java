@@ -36,8 +36,9 @@ public class IdentifyIndirectFailures {
         }
 //        the giant connected component.
         NetworkCleaner networkCleaner = new NetworkCleaner();
-        var nodeGCCIds = networkCleaner.searchBiggestCluster(roadNetwork).keySet();
+        networkCleaner.run(roadNetwork);
 //        the indirect failures
+        var nodeGCCIds = roadNetwork.getNodes().keySet();
         nodeIds.removeAll(nodeGCCIds);
         return nodeIds;
     }

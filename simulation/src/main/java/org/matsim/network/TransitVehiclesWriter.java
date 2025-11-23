@@ -83,7 +83,7 @@ public class TransitVehiclesWriter {
 
             int count = 0;
             for (TransitLine line : schedule.getTransitLines().values()) {
-                boolean isBus = isBusLine(line.getId().toString());
+                boolean isBus = isBusLine(line);
                 for (TransitRoute route : line.getRoutes().values()) {
                     for (Departure dep : route.getDepartures().values()) {
                         // 生成车辆 ID：line_route_depTime（保留整数秒）
@@ -124,8 +124,15 @@ public class TransitVehiclesWriter {
     }
 
     // --- 类型识别逻辑，可扩展 ---
-    private boolean isBusLine(String lineId) {
-        String s = lineId.toLowerCase();
-        return s.contains("bus") || s.contains("b") || s.contains("公交");
+    private boolean isBusLine(TransitLine line) {
+        // 检查线路中所有路线的 transportMode
+        for (TransitRoute route : line.getRoutes().values()) {
+            // 如果有任何一条路线的 transportMode 是 "bus"，则认为是公交线路
+            if ("bus".equals(route.getTransportMode())) {
+                return true;
+            }
+        }
+        // 如果所有路线的 transportMode 都不是 "bus"，则认为是地铁线路
+        return false;
     }
 }
