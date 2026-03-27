@@ -1,7 +1,9 @@
 package org.matsim.network;
 
-import org.geotools.data.DataStore;
-import org.geotools.data.DataStoreFinder;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.data.DataStoreFinder;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.MathTransform;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.matsim.api.core.v01.Coord;
@@ -17,11 +19,9 @@ import org.matsim.pt.transitSchedule.TransitScheduleWriterV2;
 import org.matsim.pt.transitSchedule.api.*;
 import org.matsim.core.population.routes.RouteUtils;
 import org.matsim.core.population.routes.NetworkRoute;
-import org.opengis.feature.simple.SimpleFeature;
-
+//import org.opengis.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeature;
 import org.geotools.referencing.CRS;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.MathTransform;
 import org.geotools.geometry.jts.JTS;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
@@ -68,16 +68,21 @@ public class TransitScheduleWriter {
     }
 
     /** 从 shapefile 读取公交和地铁站点 **/
-    public void loadStopsFromShp(String busStopShp, String metroStationShp, Map<String, Id<Link>> stopToLinkMapping) throws Exception {
+    /** 从 shapefile 读取公交和地铁站点 **/
+    public void loadStopsFromShp(String busStopShp, String metroStationShp,
+                                 Map<String, Id<Link>> stopToLinkMapping,
+                                 Map<String, BusNetworkIntegrator.BusLinePathInfo> busLinePathInfos) throws Exception {
         this.stopToLinkMapping = stopToLinkMapping != null ? stopToLinkMapping : new HashMap<>();
         System.out.println("🔹 Loading bus stops from: " + busStopShp);
-        readStops(busStopShp, "bus");
+        readBusStops(busStopShp, busLinePathInfos);
         System.out.println("🔹 Loading metro stations from: " + metroStationShp);
-        readStops(metroStationShp, "metro");
+        readMetroStops(metroStationShp, "metro");
         System.out.println("✅ Stops loaded: " + stopMap.size());
     }
 
-    private void readStops(String shpPath, String mode) throws Exception {
+
+    private void readMetroStops(String shpPath, String mode) throws Exception {
+        // 保持原有实现，但移除对 "bus" 模式的处理
         File file = new File(shpPath);
         Map<String, Object> params = new HashMap<>();
         params.put("url", file.toURI().toURL());
@@ -90,8 +95,8 @@ public class TransitScheduleWriter {
         SimpleFeatureCollection features = dataStore.getFeatureSource(typeName).getFeatures();
 
         // 获取shapefile的坐标系
-        CoordinateReferenceSystem sourceCRS = features.getSchema().getCoordinateReferenceSystem();
-        CoordinateReferenceSystem targetCRS = CRS.decode(this.coordinateSystem);
+        org.geotools.api.referencing.crs.CoordinateReferenceSystem sourceCRS = features.getSchema().getCoordinateReferenceSystem();
+        org.geotools.api.referencing.crs.CoordinateReferenceSystem targetCRS = CRS.decode(this.coordinateSystem);
 
         // 如果shapefile没有坐标系信息，默认为WGS84
         if (sourceCRS == null) {
@@ -99,25 +104,17 @@ public class TransitScheduleWriter {
         }
 
         // 创建坐标转换器
-        MathTransform transform = CRS.findMathTransform(sourceCRS, targetCRS, true);
+        org.geotools.api.referencing.operation.MathTransform transform = CRS.findMathTransform(sourceCRS, targetCRS, true);
 
         SimpleFeatureIterator it = features.features();
 
         while (it.hasNext()) {
             SimpleFeature f = it.next();
-            // 根据模式不同读取不同的属性字段
-            String id, name;
-            if (mode.equals("metro")) {
-                // 地铁站点使用POIID和STATION_NA字段
-                id = safeString(f.getAttribute("POIID"));
-                name = safeString(f.getAttribute("STATION_NA"));
-                if (name.isEmpty()) name = "PT_STATION";
-            } else {
-                // 公交站点使用id和station字段
-                id = safeString(f.getAttribute("id"));
-                name = safeString(f.getAttribute("station"));
-                if (name.isEmpty()) name = "PT_STOP";
-            }
+            // 只处理地铁站点
+            String id = safeString(f.getAttribute("POIID"));
+            String name = safeString(f.getAttribute("STATION_NA"));
+            if (name.isEmpty()) name = "PT_STATION";
+
             double x, y;
 
             // 优先从lng、lat属性获取坐标
@@ -148,29 +145,13 @@ public class TransitScheduleWriter {
             Coordinate targetCoord = new Coordinate();
             JTS.transform(sourceCoord, targetCoord, transform);
 
-            // 根据模式不同使用不同的属性字段
-            String stopId;
-            if (mode.equals("metro")) {
-                // 地铁站点使用POIID字段
-                stopId = safeString(f.getAttribute("POIID"));
-            } else {
-                // 公交站点使用id字段
-                stopId = safeString(f.getAttribute("id"));
-            }
-            // 对于地铁站点，需要查找所有匹配的linkId
+            String stopId = safeString(f.getAttribute("POIID"));
+            // 查找所有匹配的linkId
             List<Id<Link>> linkIds = new ArrayList<>();
-            if (mode.equals("metro")) {
-                // 查找所有以该POIID开头的映射项
-                for (Map.Entry<String, Id<Link>> entry : stopToLinkMapping.entrySet()) {
-                    if (entry.getKey().startsWith(stopId + "X")) {
-                        linkIds.add(entry.getValue());
-                    }
-                }
-            } else {
-                // 公交站点保持原有逻辑
-                Id<Link> singleLinkId = stopToLinkMapping.get(stopId);
-                if (singleLinkId != null) {
-                    linkIds.add(singleLinkId);
+            // 查找所有以该POIID开头的映射项
+            for (Map.Entry<String, Id<Link>> entry : stopToLinkMapping.entrySet()) {
+                if (entry.getKey().startsWith(stopId + "X")) {
+                    linkIds.add(entry.getValue());
                 }
             }
 
@@ -200,8 +181,6 @@ public class TransitScheduleWriter {
         it.close();
         dataStore.dispose();
     }
-
-
 
     /** 自动生成 minimalTransferTimes **/
     public void autoAddTransferTimes(Map<String, Id<Link>> stopToLinkMapping) throws Exception {
@@ -269,33 +248,92 @@ public class TransitScheduleWriter {
                 List<Id<Link>> routeLinks = pathInfo.fullPath;
                 List<Integer> stopPositions = pathInfo.stopPositions;
 
-                // 构造停靠点（路径两端）
+                // 优化后的基于预记录站点 ID 的方式
                 List<TransitStopFacility> stops = new ArrayList<>();
-                for (TransitStopFacility stop : schedule.getFacilities().values()) {
-                    if (routeLinks.contains(stop.getLinkId())) {
-                        stops.add(stop);
+
+                for (int i = 0; i < pathInfo.stopIds.size(); i++) {
+                    String stopId = pathInfo.stopIds.get(i);
+                    int stopIndex = pathInfo.stopPositions.get(i);
+
+                    Id<Link> linkId;
+                    if(stopIndex == 0){
+                        linkId = pathInfo.fullPath.get(0);
+                    } else  if (stopIndex > 0 && stopIndex <= pathInfo.fullPath.size()) {
+                        linkId = pathInfo.fullPath.get(stopIndex - 1);
+                    } else {
+                        continue;
+                    }
+                    // 根据站点 ID 查找对应的 TransitStopFacility
+                    for (TransitStopFacility stop : schedule.getFacilities().values()) {
+                        if (stop.getId().toString().startsWith(stopId + "_" + linkId.toString())) {
+                            stops.add(stop);
+                            break;
+                        }
                     }
                 }
+
                 if (stops.size() < 2) continue;
+                // 在 loadBusLinesFromShp 方法中，创建 routeLinks 时进行去重处理
+                List<Id<Link>> deduplicatedRouteLinks = new ArrayList<>();
+                if (!routeLinks.isEmpty()) {
+                    deduplicatedRouteLinks.add(routeLinks.get(0));
+                    for (int i = 1; i < routeLinks.size(); i++) {
+                        if (!routeLinks.get(i).equals(routeLinks.get(i-1))) {
+                            deduplicatedRouteLinks.add(routeLinks.get(i));
+                        }
+                    }
+                }
+
+                NetworkRoute route;
+                if (deduplicatedRouteLinks.size() < 2) {
+                    // 如果去重后链接少于2个，跳过此路线
+                    continue;
+                } else if (deduplicatedRouteLinks.size() == 2) {
+                    // 如果只有2个链接，中间部分为空
+                    route = RouteUtils.createLinkNetworkRouteImpl(
+                            deduplicatedRouteLinks.get(0),
+                            new ArrayList<>(), // 空的中间链接列表
+                            deduplicatedRouteLinks.get(1));
+                } else {
+                    // 正常情况，有3个或更多链接
+                    route = RouteUtils.createLinkNetworkRouteImpl(
+                            deduplicatedRouteLinks.get(0),
+                            deduplicatedRouteLinks.subList(1, deduplicatedRouteLinks.size()-1),
+                            deduplicatedRouteLinks.get(deduplicatedRouteLinks.size() - 1));
+                }
 
                 TransitRouteStop[] routeStops = new TransitRouteStop[stops.size()];
                 double offset = 0;
                 for (int i = 0; i < stops.size(); i++) {
-                    routeStops[i] = factory.createTransitRouteStop(stops.get(i), offset, offset + 60);
-                    // 确保既有下一个站点，又有对应的link
+                    routeStops[i] = factory.createTransitRouteStop(stops.get(i), offset, offset + 30);
                     if (i < stops.size() - 1) {
-                        double totalLength = calculatePathSegmentLength(routeLinks, stopPositions, i);
-                        if (totalLength > 0) {
-                            offset += totalLength / (12000.0 / 3600.0); // 平均速度12km/h
+                        double totalLength = 0;
+                        // 按站点 ID 对查找真实折线弧长
+                        String fromStopId = extractRawStopId(stops.get(i).getId().toString());
+                        String toStopId   = extractRawStopId(stops.get(i + 1).getId().toString());
+                        String arcKey = fromStopId + "->" + toStopId;
+                        if (pathInfo.segmentArcLengths != null
+                                && pathInfo.segmentArcLengths.containsKey(arcKey)
+                                && pathInfo.segmentArcLengths.get(arcKey) > 1.0) {
+                            totalLength = pathInfo.segmentArcLengths.get(arcKey);
                         } else {
-                            // 备用方案：如果无法计算路径长度，使用默认值
+                            // 兜底：用相邻站点坐标直线距离 × 1.3 绕行系数估算
+                            Coord c1 = stops.get(i).getCoord();
+                            Coord c2 = stops.get(i + 1).getCoord();
+                            double dx = c1.getX() - c2.getX();
+                            double dy = c1.getY() - c2.getY();
+                            totalLength = Math.sqrt(dx * dx + dy * dy) * 1.3;
+                        }
+                        if (totalLength > 0) {
+                            offset += totalLength / (20000.0 / 3600.0); // 平均速度20km/h
+                        } else {
                             offset += 60.0; // 默认60秒
                         }
                     }
                 }
 
-                NetworkRoute route = RouteUtils.createLinkNetworkRouteImpl(
-                        routeLinks.get(0), routeLinks, routeLinks.get(routeLinks.size() - 1));
+                //                NetworkRoute route = RouteUtils.createLinkNetworkRouteImpl(
+//                        routeLinks.get(0), routeLinks, routeLinks.get(routeLinks.size() - 1));
 
                 TransitRoute tr = factory.createTransitRoute(Id.create(lineName, TransitRoute.class),
                         route, Arrays.asList(routeStops), "bus");
@@ -303,7 +341,7 @@ public class TransitScheduleWriter {
                 // 发车时刻逻辑
                 int[] times = getBusTimes(lineName);
                 int depId = 1;
-                for (int t = times[0]; t <= times[1]; t += 15 * 60) {
+                for (int t = times[0]; t <= times[1]; t += 10 * 60) {
                     Departure dep = factory.createDeparture(Id.create("dep" + depId, Departure.class), t);
                     dep.setVehicleId(Id.create(lineName + "_" + String.format("%03d", depId), org.matsim.vehicles.Vehicle.class));
                     tr.addDeparture(dep);
@@ -315,6 +353,128 @@ public class TransitScheduleWriter {
             schedule.addTransitLine(line);
         }
         System.out.println("✅ Bus lines loaded: " + linesByShortName.size());
+    }
+
+    private void readBusStops(String shpPath, Map<String, BusNetworkIntegrator.BusLinePathInfo> busLinePathInfos) throws Exception {
+        File file = new File(shpPath);
+        Map<String, Object> params = new HashMap<>();
+        params.put("url", file.toURI().toURL());
+        DataStore dataStore = DataStoreFinder.getDataStore(params);
+        if (dataStore == null) {
+            throw new RuntimeException("无法读取Shapefile: " + shpPath);
+        }
+
+        String typeName = dataStore.getTypeNames()[0];
+        SimpleFeatureCollection features = dataStore.getFeatureSource(typeName).getFeatures();
+
+        // 获取shapefile的坐标系
+        org.geotools.api.referencing.crs.CoordinateReferenceSystem sourceCRS = features.getSchema().getCoordinateReferenceSystem();
+        CoordinateReferenceSystem targetCRS = CRS.decode(this.coordinateSystem);
+
+        // 如果shapefile没有坐标系信息，默认为WGS84
+        if (sourceCRS == null) {
+            sourceCRS = CRS.decode("EPSG:4326"); // WGS84
+        }
+
+        // 创建坐标转换器
+        MathTransform transform = CRS.findMathTransform(sourceCRS, targetCRS, true);
+
+        SimpleFeatureIterator it = features.features();
+
+        // 首先收集所有站点信息
+        Map<String, SimpleFeature> stopFeatures = new HashMap<>();
+        while (it.hasNext()) {
+            org.geotools.api.feature.simple.SimpleFeature f = it.next();
+            String id = safeString(f.getAttribute("id"));
+            stopFeatures.put(id, f);
+        }
+        it.close();
+
+        // 为每个线路中的站点创建独立的站点设施
+        for (Map.Entry<String, BusNetworkIntegrator.BusLinePathInfo> entry : busLinePathInfos.entrySet()) {
+            String lineName = entry.getKey();
+            BusNetworkIntegrator.BusLinePathInfo pathInfo = entry.getValue();
+
+            // 添加空列表检查
+            if (pathInfo.fullPath == null || pathInfo.fullPath.isEmpty()) {
+                System.out.println("⚠️ 线路 " + lineName + " 的 fullPath 为空，跳过处理");
+                continue;
+            }
+
+            for (int i = 0; i < pathInfo.stopIds.size(); i++) {
+                String stopId = pathInfo.stopIds.get(i);
+                SimpleFeature f = stopFeatures.get(stopId);
+                if (f == null) continue;
+
+                // 获取站点在路径中的位置
+                int stopPosition = pathInfo.stopPositions.get(i);
+                Id<Link> linkId = null;
+
+                if (stopPosition == 0) {
+                    // 添加边界检查
+                    if (!pathInfo.fullPath.isEmpty()) {
+                        linkId = pathInfo.fullPath.get(0);
+                    } else {
+                        System.out.println("⚠️ 线路 " + lineName + " 的 fullPath 为空，无法获取起始link");
+                        continue;
+                    }
+                } else if (stopPosition > 0 && stopPosition <= pathInfo.fullPath.size()) {
+                    linkId = pathInfo.fullPath.get(stopPosition - 1);
+                } else {
+                    System.out.println("⚠️ 线路 " + lineName + " 站点位置索引无效: " + stopPosition);
+                    continue;
+                }
+                // 确保linkId不为null
+                if (linkId == null) {
+                    System.out.println("⚠️ 线路 " + lineName + " 无法确定站点 " + stopId + " 的linkId");
+                    continue;
+                }
+
+                // 获取站点坐标
+                double x, y;
+                Object xObj = f.getAttribute("lng");
+                Object yObj = f.getAttribute("lat");
+                if (xObj != null && yObj != null) {
+                    x = Double.parseDouble(xObj.toString());
+                    y = Double.parseDouble(yObj.toString());
+                } else {
+                    Object geometryObj = f.getDefaultGeometry();
+                    if (geometryObj != null && geometryObj instanceof Geometry) {
+                        Geometry geometry = (Geometry) geometryObj;
+                        Coordinate coord = geometry.getCoordinate();
+                        if (coord != null) {
+                            x = coord.x;
+                            y = coord.y;
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+                }
+
+                // 执行坐标转换
+                Coordinate sourceCoord = new Coordinate(x, y);
+                Coordinate targetCoord = new Coordinate();
+                JTS.transform(sourceCoord, targetCoord, transform);
+
+                String name = safeString(f.getAttribute("station"));
+                if (name.isEmpty()) name = "PT_STOP";
+
+                Coord coord = new Coord(targetCoord.x, targetCoord.y);
+                Id<TransitStopFacility> newStopId = Id.create(stopId + "_" + linkId.toString(), TransitStopFacility.class);
+
+                if (!stopMap.containsKey(newStopId.toString())) {
+                    TransitStopFacility stop = factory.createTransitStopFacility(newStopId, coord, false);
+                    stop.setLinkId(linkId);
+                    stop.setName(name);
+                    schedule.addStopFacility(stop);
+                    stopMap.put(newStopId.toString(), stop);
+                }
+            }
+        }
+
+        dataStore.dispose();
     }
 
 
@@ -362,9 +522,6 @@ public class TransitScheduleWriter {
         return totalLength;
     }
 
-
-    /** 从 metro.shp 创建地铁线路 **/
-    /** 从 metro.shp 创建地铁线路 **/
     /** 从 metro.shp 创建地铁线路 **/
     public void loadMetroLinesFromShp(String metroLineShp, Map<String, List<Id<Link>>> linkPaths) throws Exception {
         System.out.println("🔹 Loading metro lines from: " + metroLineShp);
@@ -445,7 +602,7 @@ public class TransitScheduleWriter {
         double offset = 0;
         double speed = (fidRoad.contains("14") || fidRoad.contains("16")) ? 160000.0 / 3600.0 : 40000.0 / 3600.0;
         for (int i = 0; i < stops.size(); i++) {
-            routeStops[i] = factory.createTransitRouteStop(stops.get(i), offset, offset + 40);
+            routeStops[i] = factory.createTransitRouteStop(stops.get(i), offset, offset + 30);
             // 确保索引不越界
             if (i < stops.size() - 1 && i < routeLinks.size()) {
                 Link l = network.getLinks().get(routeLinks.get(i));
@@ -455,8 +612,24 @@ public class TransitScheduleWriter {
             }
         }
 
-        NetworkRoute route = RouteUtils.createLinkNetworkRouteImpl(
-                routeLinks.get(0), routeLinks, routeLinks.get(routeLinks.size() - 1));
+        NetworkRoute route;
+        if (routeLinks.size() < 2) {
+            // 如果链接数少于2，跳过此线路
+            System.out.println("⚠️ 地铁线路 " + lineId + " 链接数不足，跳过");
+            return;
+        } else if (routeLinks.size() == 2) {
+            // 如果只有2个链接，中间部分为空列表
+            route = RouteUtils.createLinkNetworkRouteImpl(
+                    routeLinks.get(0),
+                    new ArrayList<>(), // 空的中间链接列表
+                    routeLinks.get(1));
+        } else {
+            // 正常情况：3个或更多链接
+            route = RouteUtils.createLinkNetworkRouteImpl(
+                    routeLinks.get(0),
+                    routeLinks.subList(1, routeLinks.size() - 1),
+                    routeLinks.get(routeLinks.size() - 1));
+        }
 
         TransitRoute tr = factory.createTransitRoute(Id.create(lineId + "_01", TransitRoute.class),
                 route, Arrays.asList(routeStops), "train");
@@ -563,5 +736,11 @@ public class TransitScheduleWriter {
 
     private String safeString(Object o) {
         return o == null ? "" : o.toString().trim();
+    }
+
+    /** 从 "stopId_linkId" 格式的 TransitStopFacility ID 中提取原始站点 ID */
+    private String extractRawStopId(String facilityId) {
+        int idx = facilityId.indexOf('_');
+        return idx > 0 ? facilityId.substring(0, idx) : facilityId;
     }
 }

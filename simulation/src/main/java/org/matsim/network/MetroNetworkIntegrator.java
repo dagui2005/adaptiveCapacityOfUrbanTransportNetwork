@@ -1,14 +1,15 @@
 package org.matsim.network;
 
-import org.geotools.data.FileDataStore;
-import org.geotools.data.FileDataStoreFinder;
+import org.geotools.api.data.FileDataStore;
+import org.geotools.api.data.FileDataStoreFinder;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.MathTransform;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.referencing.CRS;
-import org.geotools.data.simple.SimpleFeatureSource;
+import org.geotools.api.data.SimpleFeatureSource;
 import org.geotools.data.simple.SimpleFeatureCollection;
+import org.geotools.api.feature.simple.SimpleFeature;
 
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.MathTransform;
 import org.geotools.geometry.jts.JTS;
 import org.locationtech.jts.geom.*;
 import org.matsim.api.core.v01.Coord;
@@ -16,8 +17,7 @@ import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.api.core.v01.network.Node;
-import org.opengis.feature.simple.SimpleFeature;
-
+//import org.opengis.feature.simple.SimpleFeature;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
@@ -483,7 +483,7 @@ public class MetroNetworkIntegrator {
         try (SimpleFeatureIterator it = featureSource.getFeatures().features()) {
             while (it.hasNext()) {
                 SimpleFeature f = it.next();
-                metroStations.add(f);
+                metroStations.add((SimpleFeature) f);
             }
         }
 
@@ -540,7 +540,7 @@ public class MetroNetworkIntegrator {
     private void loadStations(String stationShp) throws IOException {
         FileDataStore store = FileDataStoreFinder.getDataStore(new File(stationShp));
         SimpleFeatureSource featureSource = store.getFeatureSource();
-        MathTransform originalTransform = this.transformToNetworkCRS; // 保存原始转换
+        org.geotools.api.referencing.operation.MathTransform originalTransform = this.transformToNetworkCRS; // 保存原始转换
         setupCoordinateTransform(featureSource); // 设置新的坐标转换
 
         try (SimpleFeatureIterator it = featureSource.getFeatures().features()) {
@@ -571,7 +571,7 @@ public class MetroNetworkIntegrator {
         try {
             // 获取 shapefile 的 CRS
             SimpleFeatureCollection features = featureSource.getFeatures();
-            CoordinateReferenceSystem sourceCRS = features.getSchema().getCoordinateReferenceSystem();
+            org.geotools.api.referencing.crs.CoordinateReferenceSystem sourceCRS = features.getSchema().getCoordinateReferenceSystem();
 
             if (sourceCRS == null) {
                 // 如果 shapefile 没有 CRS，则假定为 WGS84 (经纬度)

@@ -86,9 +86,8 @@ public class TransitVehiclesWriter {
                 boolean isBus = isBusLine(line);
                 for (TransitRoute route : line.getRoutes().values()) {
                     for (Departure dep : route.getDepartures().values()) {
-                        // 生成车辆 ID：line_route_depTime（保留整数秒）
-                        String vehIdStr = String.format(Locale.US, "%s_%s_%d",
-                                line.getId(), route.getId(), (int) dep.getDepartureTime());
+                        // 使用与schedule中完全一致的vehicleRefId
+                        String vehIdStr = dep.getVehicleId().toString();
                         if (isBus) addBus(vehIdStr);
                         else addMetro(vehIdStr);
                         count++;

@@ -20,6 +20,7 @@ package org.matsim.project;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
+import org.matsim.core.config.groups.RoutingConfigGroup;
 import org.matsim.core.config.groups.ScoringConfigGroup;
 import org.matsim.core.controler.Controler;
 import org.matsim.core.controler.OutputDirectoryHierarchy;
@@ -30,13 +31,19 @@ import org.matsim.core.scenario.ScenarioUtils;
  * @Description: run the simulation.
  */
 public class RunMatsimBaseline {
-    private static final String configFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\config.xml";
-    private static final String networkFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\network.xml";
-    private static final String plansFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\demand.xml";
-    private static final String scheduleFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\transitSchedule.xml";
-    private static final String vehiclesFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\transitVehicle.xml";
-    private static final String outputFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\scenarios/nanjingBaselineOutput";
+//    private static final String configFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\config.xml";
+//    private static final String networkFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\network.xml";
+//    private static final String plansFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\demand.xml";
+//    private static final String scheduleFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\transitSchedule.xml";
+//    private static final String vehiclesFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\transitVehicle.xml";
+//    private static final String outputFile = "C:\\Users\\LQP\\IdeaProjects\\adaptiveCapacityOfUrbanTransportNetwork\\simulation\\scenarios\\nanjingBaseline\\scenarios/nanjingBaselineOutput";
 
+    private static final String configFile = "D:\\Luan\\2025-09\\MATSim\\guangzhoubaseline\\config.xml";
+    private static final String networkFile = "D:\\Luan\\2025-09\\MATSim\\guangzhoubaseline\\network_with_transit.xml";
+    private static final String plansFile = "D:\\Luan\\2025-09\\MATSim\\guangzhoubaseline\\demand.xml";
+    private static final String scheduleFile = "D:\\Luan\\2025-09\\MATSim\\guangzhoubaseline\\transitSchedule.xml";
+    private static final String vehiclesFile = "D:\\Luan\\2025-09\\MATSim\\guangzhoubaseline\\transitVehicles.xml";
+    private static final String outputFile = "D:\\Luan\\2025-09\\MATSim\\guangzhoubaselineOutput";
     public static void main(String[] args) {
         Config config = ConfigUtils.loadConfig(configFile);
 
@@ -81,9 +88,16 @@ public class RunMatsimBaseline {
         config.scoring().addParameterSet(ptParams);
         config.scoring().addParameterSet(carParmas);
 
+        // 重新设置步行速度为 6 km/h（1.6667 m/s），直线距离修正系数为 1
+        RoutingConfigGroup.TeleportedModeParams walkParams = (RoutingConfigGroup.TeleportedModeParams)
+                config.routing().getModeRoutingParams().get("walk");
+        walkParams.setTeleportedModeSpeed(1.6666666666666667);  // 6 km/h = 1.6667 m/s
+        walkParams.setBeelineDistanceFactor(1.0);
+
         config.counts().setCountsScaleFactor(100);
-        config.qsim().setFlowCapFactor(1);
-        config.qsim().setStorageCapFactor(1);
+        // 设置网络容量系数为0.3，以适配抽样Agent产生的真实路况
+        config.qsim().setFlowCapFactor(0.3);
+        config.qsim().setStorageCapFactor(1); 
 
         config.global().setNumberOfThreads(12);  // innovative strategies. using the number of available cores.
         config.qsim().setNumberOfThreads(8);  // parallel qsim.

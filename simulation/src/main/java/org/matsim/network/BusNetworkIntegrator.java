@@ -1,6 +1,12 @@
 package org.matsim.network;
 
-import org.geotools.data.FileDataStoreFinder;
+//import org.geotools.data.FileDataStoreFinder;
+import org.geotools.api.data.FileDataStoreFinder;
+
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.MathTransform;
 import org.geotools.data.simple.*;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.referencing.CRS;
@@ -15,9 +21,6 @@ import org.matsim.core.network.io.NetworkWriter;
 import org.matsim.core.router.costcalculators.OnlyTimeDependentTravelDisutility;
 import org.matsim.core.router.speedy.*;
 import org.matsim.core.router.util.*;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.MathTransform;
 
 import java.io.File;
 import java.util.*;
@@ -44,7 +47,7 @@ public class BusNetworkIntegrator {
     private final Map<String, BusLinePathInfo> linePathInfos = new HashMap<>();
 
     private String networkCRS;
-    private MathTransform transformToNetworkCRS;
+    private org.geotools.api.referencing.operation.MathTransform transformToNetworkCRS;
 
     public BusNetworkIntegrator(Network network, double angleThresholdDeg, double distanceThresholdMeter, String networkCRS) {
         this.network = network;
@@ -79,8 +82,9 @@ public class BusNetworkIntegrator {
 
             // 遍历每条公交线路，进行几何处理和路径匹配
             while (it.hasNext()) {
-                SimpleFeature f = it.next();
+                org.geotools.api.feature.simple.SimpleFeature f = it.next();
                 String lineId = String.valueOf(f.getAttribute("line_name"));
+//                if (!lineId.equals("107路(中山八路总站--花城广场西总站)")) continue;
                 Geometry geom = (Geometry) f.getDefaultGeometry();
                 // === CRS转换 ===
                 if (transformToNetworkCRS != null) {
@@ -96,44 +100,176 @@ public class BusNetworkIntegrator {
                 MultiLineString multiLine = (MultiLineString) geom;
 
                 // 按顺序匹配站点到线路几何, 并保存方向角
-                sortStopsAlongLineGeometry(lineId, multiLine.getGeometryN(0), stopsByLine);
+                Geometry lineGeom = multiLine.getGeometryN(0);
+                sortStopsAlongLineGeometry(lineId, lineGeom, stopsByLine);
 
-                // 过滤可匹配站点 + 路径连接
-                Iterator<BusStop> iter = stopsByLine.get(lineId).iterator();
-                while (iter.hasNext()) {
-                    BusStop stop = iter.next();
+                // 匹配站点到最近 link，未匹配的站点标记 nearestLink=null（不再删除）
+                for (BusStop stop : stopsByLine.get(lineId)) {
                     Link nearestLink = findNearestLink(stop.coord, distanceThresholdMeter, stop.directionDeg, angleThresholdDeg);
-                    if (nearestLink == null) {
-                        iter.remove();
-                    } else {
+                    if (nearestLink != null) {
                         stop.nearestLink = nearestLink;
                         stopToLinkMapping.put(stop.id, nearestLink.getId());
                     }
+                    // nearestLink==null 的站点保留，后续用虚拟 link 处理
                 }
-                //todo: 添加路径连接逻辑
-                //todo：（1）从当前lineName的stopsByLine（已删除不匹配link的站点）的第一个stop对应的nearestLink开始匹配到下一个stop的nearestLink的最短路径，加入fullPath
-                //todo：（2）对fullPath中的link，增加 bus 模式AllowedModes。
+
+                // 在创建 fullPath 和 stopLinkPositions 之前，记录站点 ID
+                List<String> stopIds = new ArrayList<>();
+                for (BusStop stop : stopsByLine.get(lineId)) {
+                    stopIds.add(stop.id);
+                }
                 List<Id<Link>> fullPath = new ArrayList<>();
                 List<Integer> stopLinkPositions = new ArrayList<>(); // 记录站点在路径中的位置
+                Map<String, Double> segmentArcLengths = new HashMap<>(); // 键="fromStopId->toStopId"
 
-// 记录起始站点位置
-                if (!stopsByLine.get(lineId).isEmpty()) {
+                List<BusStop> stops = stopsByLine.get(lineId);
+
+                // 记录起始站点位置
+                if (!stops.isEmpty()) {
                     stopLinkPositions.add(fullPath.size()); // 起始站点位置
                 }
 
-                for(int i = 0; i < stopsByLine.get(lineId).size() - 1; i++){
-                    BusStop currentStop = stopsByLine.get(lineId).get(i);
-                    BusStop nextStop = stopsByLine.get(lineId).get(i + 1);
-                    List<Id<Link>> linkPath = dijkstraPath(currentStop.nearestLink, nextStop.nearestLink);
+                // fullPath 末尾实际 toNode，用于段间连通性校验与过渡 link 插入
+                Node lastPathEndNode = null;
+
+                for (int i = 0; i < stops.size() - 1; i++) {
+                    BusStop currentStop = stops.get(i);
+                    BusStop nextStop    = stops.get(i + 1);
+
+                    // 计算本段真实折线弧长，以站点 ID 对为键存储
+                    double arcLength = computeArcLength(lineGeom, currentStop.distAlong, nextStop.distAlong);
+                    segmentArcLengths.put(currentStop.id + "->" + nextStop.id, arcLength);
+
+                    List<Id<Link>> linkPath = new ArrayList<>();
+
+                    if (currentStop.nearestLink == null || nextStop.nearestLink == null) {
+                        // 至少一个端点未匹配 → 创建虚拟 link
+                        Link fromLink = currentStop.nearestLink;
+                        Link toLink   = nextStop.nearestLink;
+
+                        if (fromLink == null && toLink == null) {
+                            for (int k = i - 1; k >= 0 && fromLink == null; k--) {
+                                fromLink = stops.get(k).nearestLink;
+                            }
+                            for (int k = i + 2; k < stops.size() && toLink == null; k++) {
+                                toLink = stops.get(k).nearestLink;
+                            }
+                            if (fromLink == null && toLink == null) {
+                                stopLinkPositions.add(fullPath.size());
+                                System.err.println("⚠️ [" + lineId + "] 站点 " + currentStop.id
+                                        + " 和 " + nextStop.id + " 均未匹配且无法锚定，跳过本段");
+                                continue;
+                            }
+                        } else if (fromLink == null) {
+                            for (int k = i - 1; k >= 0 && fromLink == null; k--) {
+                                fromLink = stops.get(k).nearestLink;
+                            }
+                            if (fromLink == null) fromLink = toLink;
+                        } else {
+                            for (int k = i + 2; k < stops.size() && toLink == null; k++) {
+                                toLink = stops.get(k).nearestLink;
+                            }
+                            if (toLink == null) toLink = fromLink;
+                        }
+
+                        // 虚拟 link 的起点：优先接续 fullPath 末尾节点，否则用 fromLink.toNode
+                        Node anchorFrom = (fromLink != null) ? fromLink.getToNode()
+                                        : (toLink  != null) ? toLink.getFromNode() : null;
+                        Node anchorTo   = (toLink   != null) ? toLink.getFromNode()
+                                        : (fromLink != null) ? fromLink.getToNode() : null;
+                        if (anchorFrom == null && lastPathEndNode == null) {
+                            stopLinkPositions.add(fullPath.size());
+                            System.err.println("⚠️ [" + lineId + "] seg" + i + " 无法确定锚点节点，跳过");
+                            continue;
+                        }
+                        Node virtFromNode = (lastPathEndNode != null) ? lastPathEndNode : anchorFrom;
+                        Node virtToNode   = (anchorTo != null) ? anchorTo : virtFromNode;
+                        Link newLink = createVirtualLinkBetweenNodes(virtFromNode, virtToNode, arcLength, lineId, i);
+                        if (newLink != null) {
+                            if (!network.getLinks().containsKey(newLink.getId())) {
+                                network.addLink(newLink);
+                            }
+                            if (currentStop.nearestLink == null) {
+                                currentStop.nearestLink = newLink;
+                                stopToLinkMapping.put(currentStop.id, newLink.getId());
+                            }
+                            linkPath.add(newLink.getId());
+                        } else {
+                            stopLinkPositions.add(fullPath.size());
+                            continue;
+                        }
+                    } else {
+                        // 两端均已匹配，走 Dijkstra 最短路
+                        linkPath = dijkstraPath(currentStop.nearestLink, nextStop.nearestLink);
+                        if (linkPath.isEmpty()) {
+                            Link newLink = createDirectLinkWithArcLength(
+                                    currentStop.nearestLink, nextStop.nearestLink, arcLength, lineId, i);
+                            if (newLink != null) {
+                                if (!network.getLinks().containsKey(newLink.getId())) {
+                                    network.addLink(newLink);
+                                }
+                                linkPath.add(newLink.getId());
+                            }
+                        } else {
+                            // Dijkstra 成功：修正端点 link
+                            Id<Link> firstLinkId = linkPath.get(0);
+                            if (firstLinkId != null && !firstLinkId.equals(currentStop.nearestLink.getId())) {
+                                Link firstLink = network.getLinks().get(firstLinkId);
+                                Link newLink = createDirectLink(currentStop.nearestLink, firstLink);
+                                if (newLink != null) {
+                                    if (!network.getLinks().containsKey(newLink.getId())) network.addLink(newLink);
+                                    linkPath.add(0, newLink.getId());
+                                    linkPath.add(0, currentStop.nearestLink.getId());
+                                }
+                            }
+                            Id<Link> lastLinkId = linkPath.get(linkPath.size() - 1);
+                            if (lastLinkId != null && !lastLinkId.equals(nextStop.nearestLink.getId())) {
+                                Link lastLink = network.getLinks().get(lastLinkId);
+                                Link newLink = createDirectLink(lastLink, nextStop.nearestLink);
+                                if (newLink != null) {
+                                    if (!network.getLinks().containsKey(newLink.getId())) network.addLink(newLink);
+                                    linkPath.add(newLink.getId());
+                                    linkPath.add(nextStop.nearestLink.getId());
+                                }
+                            }
+                        }
+                    }
+
+                    if (linkPath.isEmpty()) {
+                        stopLinkPositions.add(fullPath.size());
+                        continue;
+                    }
+
+                    // ===== 统一连通性校验：在追加 linkPath 前，检查段间节点是否连通 =====
+                    if (lastPathEndNode != null) {
+                        Node segFirstNode = network.getLinks().get(linkPath.get(0)).getFromNode();
+                        if (!lastPathEndNode.getId().equals(segFirstNode.getId())) {
+                            // 插入过渡 link 弥补断点
+                            double dx = lastPathEndNode.getCoord().getX() - segFirstNode.getCoord().getX();
+                            double dy = lastPathEndNode.getCoord().getY() - segFirstNode.getCoord().getY();
+                            double transLen = Math.max(Math.sqrt(dx * dx + dy * dy), 1.0);
+                            Link transLink = createVirtualLinkBetweenNodes(
+                                    lastPathEndNode, segFirstNode, transLen, lineId, i * 10000);
+                            if (transLink != null) {
+                                if (!network.getLinks().containsKey(transLink.getId())) {
+                                    network.addLink(transLink);
+                                }
+                                fullPath.add(transLink.getId());
+                            }
+                        }
+                    }
+
                     fullPath.addAll(linkPath);
+                    // 更新 fullPath 末尾节点
+                    lastPathEndNode = network.getLinks().get(linkPath.get(linkPath.size() - 1)).getToNode();
                     // 记录下一站点在完整路径中的位置
                     stopLinkPositions.add(fullPath.size());
                 }
 
-                // 保存线路对应的完整路径
-//                lineLinkPaths.put(lineId, fullPath);
-                linePathInfos.put(lineId, new BusLinePathInfo(fullPath, stopLinkPositions));
-                System.out.println("[Bus] Line " + lineId + " 完成匹配，路径长度：" + fullPath.size());
+                // 保存线路对应的完整路径、站点信息和真实弧长
+                linePathInfos.put(lineId, new BusLinePathInfo(fullPath, stopLinkPositions, stopIds, segmentArcLengths));
+                System.out.println("[Bus] Line " + lineId + " 完成匹配，路径长度：" + fullPath.size()
+                        + "，弧长段数：" + segmentArcLengths.size());
             }
             it.close();
 
@@ -143,6 +279,171 @@ public class BusNetworkIntegrator {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private Link createDirectLink(Link fromLink, Link toLink) {
+        try {
+            // 获取起点和终点坐标
+            Node fromNode = fromLink.getToNode();  // 从前一个链接的终点开始
+            Node toNode = toLink.getFromNode();    // 连接到下一个链接的起点
+
+            // 如果两个节点相同，不需要创建链接
+            if (fromNode.getId().equals(toNode.getId())) {
+                return null;
+            }
+
+            // 检查是否已存在相同链接
+            for (Link existingLink : fromNode.getOutLinks().values()) {
+                if (existingLink.getToNode().getId().equals(toNode.getId())) {
+                    return existingLink;
+                }
+            }
+
+            // 创建新链接ID
+            Id<Link> newLinkId = Id.createLinkId("bus_conn_" + fromNode.getId() + "_to_" + toNode.getId());
+
+            // 计算距离
+            double distance = Math.sqrt(
+                    Math.pow(fromNode.getCoord().getX() - toNode.getCoord().getX(), 2) +
+                            Math.pow(fromNode.getCoord().getY() - toNode.getCoord().getY(), 2)
+            );
+
+            // 创建新链接
+            Link newLink = network.getFactory().createLink(newLinkId, fromNode, toNode);
+            newLink.setLength(distance);
+            newLink.setFreespeed(12000.0 / 3600.0); // 12 km/h 公交速度
+            // 设置通行能力为 1000.0
+            newLink.setCapacity(1000.0);
+            newLink.setNumberOfLanes(1.0);
+
+            // 设置允许模式包括bus
+            Set<String> modes = new HashSet<>(Arrays.asList("bus"));
+            newLink.setAllowedModes(modes);
+
+            return newLink;
+        } catch (Exception e) {
+            System.err.println("创建直连链接失败: " + e.getMessage());
+            return null;
+        }
+    }
+
+
+    /**
+     * 创建带折线弧长的直连 link（用于 Dijkstra 失败时的 fallback）。
+     * 长度使用 Shapefile 折线真实弧长，而非欧氏直线距离。
+     */
+    private Link createDirectLinkWithArcLength(Link fromLink, Link toLink, double arcLength,
+                                               String lineId, int segIndex) {
+        try {
+            Node fromNode = fromLink.getToNode();
+            Node toNode   = toLink.getFromNode();
+            if (fromNode.getId().equals(toNode.getId())) return null;
+
+            // 检查是否已存在相同链接
+            for (Link existing : fromNode.getOutLinks().values()) {
+                if (existing.getToNode().getId().equals(toNode.getId())) {
+                    // 若已存在，用较大值更新长度（保守：取max，不缩短已有 link）
+                    if (arcLength > existing.getLength()) {
+                        existing.setLength(arcLength);
+                    }
+                    return existing;
+                }
+            }
+
+            double dx1 = fromNode.getCoord().getX() - toNode.getCoord().getX();
+            double dy1 = fromNode.getCoord().getY() - toNode.getCoord().getY();
+            double length = arcLength > 1.0 ? arcLength : Math.sqrt(dx1 * dx1 + dy1 * dy1);
+            Id<Link> newLinkId = Id.createLinkId("bus_arc_" + lineId + "_seg" + segIndex
+                    + "_" + fromNode.getId() + "_" + toNode.getId());
+            Link newLink = network.getFactory().createLink(newLinkId, fromNode, toNode);
+            newLink.setLength(length);
+            newLink.setFreespeed(12000.0 / 3600.0);
+            newLink.setCapacity(1000.0);
+            newLink.setNumberOfLanes(1.0);
+            newLink.setAllowedModes(new HashSet<>(Arrays.asList("bus")));
+            return newLink;
+        } catch (Exception e) {
+            System.err.println("创建弧长直连链接失败: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 创建虚拟 link，直接指定起止节点（保证连续虚拟 link 的节点连通性）。
+     */
+    private Link createVirtualLinkBetweenNodes(Node fromNode, Node toNode, double arcLength,
+                                               String lineId, int segIndex) {
+        try {
+            // 节点相同时仍需自环（长度=arcLength）来给停靠站提供 link
+            Id<Link> newLinkId = Id.createLinkId("bus_virt_" + lineId + "_seg" + segIndex
+                    + "_" + fromNode.getId() + "_" + toNode.getId());
+
+            if (network.getLinks().containsKey(newLinkId)) {
+                return network.getLinks().get(newLinkId);
+            }
+
+            double dx2 = fromNode.getCoord().getX() - toNode.getCoord().getX();
+            double dy2 = fromNode.getCoord().getY() - toNode.getCoord().getY();
+            double length = arcLength > 1.0 ? arcLength : Math.max(Math.sqrt(dx2 * dx2 + dy2 * dy2), 1.0);
+            Link newLink = network.getFactory().createLink(newLinkId, fromNode, toNode);
+            newLink.setLength(length);
+            newLink.setFreespeed(12000.0 / 3600.0);
+            newLink.setCapacity(1000.0);
+            newLink.setNumberOfLanes(1.0);
+            newLink.setAllowedModes(new HashSet<>(Arrays.asList("bus")));
+            System.out.println("🔧 [" + lineId + "] 创建虚拟link seg" + segIndex
+                    + " " + fromNode.getId() + "->" + toNode.getId()
+                    + " length=" + String.format("%.1f", length) + "m");
+            return newLink;
+        } catch (Exception e) {
+            System.err.println("创建虚拟链接失败: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 为未匹配路网的站点创建虚拟 link，使用就近已匹配站点作为连接节点。
+     * @deprecated 请使用 {@link #createVirtualLinkBetweenNodes} 以保证节点连通性
+     */
+    @Deprecated
+    private Link createVirtualLink(Link fromLink, Link toLink, double arcLength,
+                                   String lineId, int segIndex) {
+        Node fromNode = (fromLink != null) ? fromLink.getToNode() : toLink.getFromNode();
+        Node toNode   = (toLink   != null) ? toLink.getFromNode() : fromLink.getToNode();
+        return createVirtualLinkBetweenNodes(fromNode, toNode, arcLength, lineId, segIndex);
+    }
+
+    /**
+     * 计算 Geometry 折线上，从 distAlong=fromDist 到 toDist 之间的真实弧长（米）。
+     * distAlong 对应 sortStopsAlongLineGeometry 中赋值的 segmentIndex + segmentFraction。
+     */
+    private static double computeArcLength(Geometry lineGeom, double fromDist, double toDist) {
+        if (fromDist >= toDist) return 0.0;
+        Coordinate[] coords = lineGeom.getCoordinates();
+        if (coords.length < 2) return 0.0;
+
+        int maxSeg   = coords.length - 2;
+        int fromSeg  = Math.min((int) fromDist, maxSeg);
+        double fromFrac = fromDist - (int) fromDist;
+        int toSeg    = Math.min((int) toDist,   maxSeg);
+        double toFrac   = toDist   - (int) toDist;
+
+        if (fromSeg == toSeg) {
+            double segLen = coords[fromSeg].distance(coords[fromSeg + 1]);
+            return segLen * (toFrac - fromFrac);
+        }
+
+        double total = 0.0;
+        // 起始段：从 fromFrac 到段末
+        total += coords[fromSeg].distance(coords[fromSeg + 1]) * (1.0 - fromFrac);
+        // 中间完整段
+        for (int k = fromSeg + 1; k < toSeg; k++) {
+            total += coords[k].distance(coords[k + 1]);
+        }
+        // 终止段：从段头到 toFrac
+        total += coords[toSeg].distance(coords[toSeg + 1]) * toFrac;
+
+        return total;
     }
 
     private void sortStopsAlongLineGeometry(String lineId, Geometry geom, Map<String, List<BusStop>> stopsByLine) {
@@ -276,7 +577,7 @@ public class BusNetworkIntegrator {
         if (networkCRS == null || networkCRS.isEmpty()) return;
         try {
             SimpleFeatureCollection features = featureSource.getFeatures();
-            CoordinateReferenceSystem sourceCRS = features.getSchema().getCoordinateReferenceSystem();
+            org.geotools.api.referencing.crs.CoordinateReferenceSystem sourceCRS = features.getSchema().getCoordinateReferenceSystem();
             if (sourceCRS == null) {
                 System.out.println("[CRS] 源文件 CRS 未定义，假定为 EPSG:4326");
                 sourceCRS = CRS.decode("EPSG:4326");
@@ -339,12 +640,22 @@ public class BusNetworkIntegrator {
     public static class BusLinePathInfo {
         public List<Id<Link>> fullPath;
         public List<Integer> stopPositions;
+        public List<String> stopIds; // 新增：记录站点 ID 序列
+        /**
+         * 每个站间段的真实 Shapefile 折线弧长（米）。
+         * 键为 "fromStopId->toStopId"，与站点顺序无关，便于在 TransitScheduleWriter 中按站对查找。
+         */
+        public Map<String, Double> segmentArcLengths;
 
-        public BusLinePathInfo(List<Id<Link>> fullPath, List<Integer> stopPositions) {
+        public BusLinePathInfo(List<Id<Link>> fullPath, List<Integer> stopPositions,
+                               List<String> stopIds, Map<String, Double> segmentArcLengths) {
             this.fullPath = fullPath;
             this.stopPositions = stopPositions;
+            this.stopIds = stopIds;
+            this.segmentArcLengths = segmentArcLengths;
         }
     }
+
     // === 外部访问 ===
 //    public Map<String, List<Id<Link>>> getLineLinkPaths() { return lineLinkPaths; }
     public Map<String, Id<Link>> getStopToLinkMapping() { return stopToLinkMapping; }

@@ -1,12 +1,12 @@
 package org.matsim.network;
 
-import org.geotools.data.DataStore;
-import org.geotools.data.DataStoreFinder;
-import org.geotools.data.simple.SimpleFeatureSource;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.data.DataStoreFinder;
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.feature.simple.SimpleFeature;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiLineString;
-import org.opengis.feature.simple.SimpleFeature;
 
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.Scenario;
@@ -30,17 +30,18 @@ public class OSMShp2Network {
     // fclass → 默认速度(m/s) + 车道数
     private static final Map<String, double[]> roadDefaults = new HashMap<>();
     static {
-        roadDefaults.put("motorway", new double[]{33.3, 3});       // 120 km/h
-        roadDefaults.put("motorway_link", new double[]{22.2, 2});
-        roadDefaults.put("trunk", new double[]{27.8, 3});          // 100 km/h
-        roadDefaults.put("trunk_link", new double[]{22.2, 2});
-        roadDefaults.put("primary", new double[]{22.2, 2});        // 80 km/h
-        roadDefaults.put("primary_link", new double[]{22.2, 2});
-        roadDefaults.put("secondary", new double[]{16.7, 2});      // 60 km/h
-        roadDefaults.put("secondary_link", new double[]{16.7, 2});
-        roadDefaults.put("tertiary", new double[]{13.9, 2});       // 50 km/h
-        roadDefaults.put("tertiary_link", new double[]{13.9, 2});
+        roadDefaults.put("motorway", new double[]{22.2, 3});       // 80 km/h
+        roadDefaults.put("motorway_link", new double[]{11.1, 2});  // 40 km/h
+        roadDefaults.put("trunk", new double[]{16.7, 3});          // 60 km/h
+        roadDefaults.put("trunk_link", new double[]{11.1, 2});     // 40 km/h
+        roadDefaults.put("primary", new double[]{13.9, 2});        // 50 km/h
+        roadDefaults.put("primary_link", new double[]{11.1, 2});   // 40 km/h
+        roadDefaults.put("secondary", new double[]{11.1, 2});      // 40 km/h
+        roadDefaults.put("secondary_link", new double[]{11.1, 2}); // 40 km/h
+        roadDefaults.put("tertiary", new double[]{8.3, 2});        // 30 km/h
+        roadDefaults.put("tertiary_link", new double[]{8.3, 2});   // 30 km/h
     }
+
 
     // 修改点：短编号生成器
     private static long globalNodeId = 1;

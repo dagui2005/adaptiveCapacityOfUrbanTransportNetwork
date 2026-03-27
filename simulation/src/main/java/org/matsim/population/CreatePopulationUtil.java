@@ -27,10 +27,10 @@ import java.util.Random;
 public class CreatePopulationUtil {
 
 //    zone2zone travel demand 文件路径；后续的变量及方法都定义为静态的，无需实例化即可使用； ！！！更改文件路径！！！
-    private static String Z2ZDemandFilePath = "D:\\【学术】\\【研究生】\\【方向】多模式交通网络韧性\\【数据】需求生成\\【数据】南京市网格数据\\交通分布_1009\\多模式交通分布_r0_1009.csv";
+    private static String Z2ZDemandFilePath = "D:\\Luan\\2025-09\\MATSim\\grid_cid_gz\\od_20241014.csv";
 
 //    agent2agent travel demand 文件路径；    ！！！更改文件路径！！！
-    private static String A2ADemandFilePath = "src/main/resources/demand.noex20.100pct.xml";
+    private static String A2ADemandFilePath = "D:\\Luan\\2025-09\\MATSim\\guangzhoubaseline\\demand.grid250.100pct.xml";
 
 //    提前定义 bufferedReader，避免程序都写入 try-catch语句中
     private static BufferedReader bufferedReader;

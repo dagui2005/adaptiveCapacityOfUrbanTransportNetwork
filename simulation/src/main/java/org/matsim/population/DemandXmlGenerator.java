@@ -1,14 +1,12 @@
 package org.matsim.population;
 
-import org.geotools.data.simple.*;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.MathTransform;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.referencing.CRS;
-import org.locationtech.jts.geom.*;
 import org.locationtech.jts.geom.Coordinate;
 
 import org.matsim.api.core.v01.Coord;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.MathTransform;
 
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.Scenario;
@@ -69,7 +67,7 @@ public class DemandXmlGenerator {
 
         try {
             // 获取坐标系时指定强制经纬度顺序
-            CoordinateReferenceSystem sourceCRS = CRS.decode(SRC_EPSG, true);  // true表示强制经纬度顺序
+            org.geotools.api.referencing.crs.CoordinateReferenceSystem sourceCRS = CRS.decode(SRC_EPSG, true);  // true表示强制经纬度顺序
             CoordinateReferenceSystem targetCRS = CRS.decode(TGT_EPSG, true);
             transformToTarget = CRS.findMathTransform(sourceCRS, targetCRS, true);
             System.out.println("[CRS] Init transform WGS84 → EPSG:32649");

@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 public class TransitBuilder {
 
     // === 输入/输出路径 ===
-    private static final String INPUT_NETWORK = "D:\\Luan\\2025-09\\MATSim\\guangzhoubaseline\\network_car.xml";
+    private static final String INPUT_NETWORK = "D:\\Luan\\2025-09\\MATSim\\guangzhoubaseline\\network.xml";
 //    private static final String INPUT_NETWORK = "D:\\Luan\\2025-09\\MATSim\\guangzhoubaseline\\network_with_bus.xml";
     private static final String BUSSTOP_SHP = "D:\\Luan\\2025-09\\MATSim\\guangzhou_bus2025\\guangzhou_busstop.shp";
     private static final String BUSLINE_SHP = "D:\\Luan\\2025-09\\MATSim\\guangzhou_bus2025\\guangzhou_busline.shp";
@@ -38,8 +38,8 @@ public class TransitBuilder {
 
     // 参数
     private static final int NODE_COORD_DECIMAL = 2;
-    private static final double NODE_SNAP_TOLERANCE = 20.0; // m
-    private static final double ANGLE_THRESHOLD_DEG = 30.0; // 角度
+    private static final double NODE_SNAP_TOLERANCE = 60.0; // m（放宽以覆盖路网缺口处的站点）
+    private static final double ANGLE_THRESHOLD_DEG = 45.0; // 角度
 
     public static void main(String[] args) throws Exception {
         System.out.println("=== TransitBuilder start ===");
@@ -83,7 +83,9 @@ public class TransitBuilder {
         combinedStopToLink.putAll(ptToLink);   // 地铁站点映射
 
         // 更新调用
-        scheduleWriter.loadStopsFromShp(BUSSTOP_SHP, METRO_STATIONS_SHP, combinedStopToLink);
+        // 修改这一行：
+        scheduleWriter.loadStopsFromShp(BUSSTOP_SHP, METRO_STATIONS_SHP, combinedStopToLink, busLinePathInfos);
+//        scheduleWriter.loadStopsFromShp(BUSSTOP_SHP, METRO_STATIONS_SHP, combinedStopToLink);
 //        scheduleWriter.loadStopsFromShp(BUSSTOP_SHP, METRO_STATIONS_SHP, stopToLink);
 //        scheduleWriter.autoAddTransferTimes(BUSSTOP_SHP);
 
