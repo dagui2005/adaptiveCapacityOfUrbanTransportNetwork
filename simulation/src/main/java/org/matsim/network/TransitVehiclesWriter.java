@@ -43,6 +43,7 @@ public class TransitVehiclesWriter {
         busType.setNetworkMode("car");
         busType.setFlowEfficiencyFactor(1.0);
         busType.setPcuEquivalents(1.0);
+        busType.setMaximumVelocity(13.889); // 50 km/h（Layer 5：Layer 4 限速 30km/h 过头，本轮放宽到 50km/h 让公交在快速路上能跑得动，结合 schedule offset 18km/h 控制平均速度） = 8.333 m/s（公交物理限速上限；真实公交平均 12-25 km/h，含站点停靠）
         busType.getAttributes().putAttribute("accessTimeInSecondsPerPerson", 0.5);
         busType.getAttributes().putAttribute("doorOperationMode",
                 org.matsim.vehicles.VehicleType.DoorOperationMode.serial.toString());

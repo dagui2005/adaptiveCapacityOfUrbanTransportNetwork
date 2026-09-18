@@ -325,7 +325,7 @@ public class TransitScheduleWriter {
                             totalLength = Math.sqrt(dx * dx + dy * dy) * 1.3;
                         }
                         if (totalLength > 0) {
-                            offset += totalLength / (20000.0 / 3600.0); // 平均速度20km/h
+                            offset += totalLength / (18000.0 / 3600.0); // 18 km/h（Layer 5：Layer 4 限速 12km/h 过头，pt 比例 23% vs 目标 36%，提升到 18km/h 接近广州公交实际平均；物理上限 maxVelocity=50km/h）
                         } else {
                             offset += 60.0; // 默认60秒
                         }
@@ -338,10 +338,10 @@ public class TransitScheduleWriter {
                 TransitRoute tr = factory.createTransitRoute(Id.create(lineName, TransitRoute.class),
                         route, Arrays.asList(routeStops), "bus");
 
-                // 发车时刻逻辑
+                // 发车时刻逻辑（高峰5min，平峰10min）
                 int[] times = getBusTimes(lineName);
                 int depId = 1;
-                for (int t = times[0]; t <= times[1]; t += 10 * 60) {
+                for (int t = times[0]; t <= times[1]; t += getBusHeadwaySec(t)) {
                     Departure dep = factory.createDeparture(Id.create("dep" + depId, Departure.class), t);
                     dep.setVehicleId(Id.create(lineName + "_" + String.format("%03d", depId), org.matsim.vehicles.Vehicle.class));
                     tr.addDeparture(dep);
@@ -483,6 +483,17 @@ public class TransitScheduleWriter {
         int start = isNight ? 22 * 3600 + 30 * 60 : 6 * 3600 + 30 * 60;
         int end = isNight ? 24 * 3600 + 30 * 60 : 22 * 3600 + 30 * 60;
         return new int[]{start, end};
+    }
+
+    /**
+     * 公交发车间隔（秒）：早晚高峰7-9时、17-19时为5分钟，其余平峰为10分钟
+     */
+    private int getBusHeadwaySec(int timeSec) {
+        int hour = timeSec / 3600;
+        if ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 19)) {
+            return 5 * 60;   // 高峰5分钟
+        }
+        return 10 * 60;      // 平峰10分钟
     }
     /**
      * 计算两个相邻站点之间的路径段总长度

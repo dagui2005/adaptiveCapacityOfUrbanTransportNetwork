@@ -119,10 +119,10 @@ public class OSMShp2Network {
                     MultiLineString mls = (MultiLineString) geom;
                     for (int i = 0; i < mls.getNumGeometries(); i++) {
                         processLine((LineString) mls.getGeometryN(i), network, ct,
-                                freespeed, lanes, oneway, osmId);
+                                freespeed, lanes, oneway, osmId, fclass);
                     }
                 } else if (geom instanceof LineString) {
-                    processLine((LineString) geom, network, ct, freespeed, lanes, oneway, osmId);
+                    processLine((LineString) geom, network, ct, freespeed, lanes, oneway, osmId, fclass);
                 }
             }
         }
@@ -137,7 +137,8 @@ public class OSMShp2Network {
     }
 
     private static void processLine(LineString line, Network network, CoordinateTransformation ct,
-                                    double freespeed, int lanes, String oneway, String osmId) {
+                                    double freespeed, int lanes, String oneway, String osmId,
+                                    String fclass) {
         Coordinate[] coords = line.getCoordinates();
 
         // 修改点：在 LineString 内部按夹角简化 (5°)
@@ -170,6 +171,8 @@ public class OSMShp2Network {
             link.setFreespeed(freespeed);
             link.setNumberOfLanes(lanes);
             link.setCapacity(2000 * lanes);
+            // 写入 fclass 属性，供 BusNetworkIntegrator 做道路类型过滤
+            link.getAttributes().putAttribute("fclass", fclass);
             network.addLink(link);
 
             if (!isOneWay) {
@@ -179,6 +182,7 @@ public class OSMShp2Network {
                 backLink.setFreespeed(freespeed);
                 backLink.setNumberOfLanes(lanes);
                 backLink.setCapacity(2000 * lanes);
+                backLink.getAttributes().putAttribute("fclass", fclass);
                 network.addLink(backLink);
             }
         }

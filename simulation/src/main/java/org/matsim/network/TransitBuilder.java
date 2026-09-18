@@ -38,8 +38,12 @@ public class TransitBuilder {
 
     // 参数
     private static final int NODE_COORD_DECIMAL = 2;
-    private static final double NODE_SNAP_TOLERANCE = 60.0; // m（放宽以覆盖路网缺口处的站点）
-    private static final double ANGLE_THRESHOLD_DEG = 45.0; // 角度
+    private static final double NODE_SNAP_TOLERANCE = 100.0; // m（60→100：覆盖郊区低密度路网）
+    private static final double ANGLE_THRESHOLD_DEG = 45.0; // 角度（第1级严格）
+    private static final double ANGLE_THRESHOLD_RELAXED_DEG = 75.0; // 多级回退时的放宽角度
+    private static final double RADIUS_RELAXED = 200.0; // 多级回退的最大半径
+    private static final boolean ENABLE_FCLASS_FALLBACK = true; // 多级 fclass 回退开关
+    private static final boolean ENABLE_SUBSPLIT_FALLBACK = true; // 子段二分递归开关
 
     public static void main(String[] args) throws Exception {
         System.out.println("=== TransitBuilder start ===");

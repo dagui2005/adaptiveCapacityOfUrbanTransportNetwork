@@ -1,0 +1,36 @@
+# Python dependencies for the analysis/ module
+# Reproduced from the import statements of all 11 scripts in analysis/
+
+# ---- Core scientific stack ------------------------------------------------
+numpy>=1.26
+pandas>=2.0
+scipy>=1.11
+
+# ---- Visualization --------------------------------------------------------
+matplotlib>=3.7
+seaborn>=0.13
+
+# ---- Geospatial ------------------------------------------------------------
+# geopandas pulls in shapely, fiona, pyproj transitively, but pin pyproj explicitly
+# because the scripts use Transformer.from_crs(EPSG:32650/32649/25832/3310 -> 4326).
+geopandas>=0.14
+shapely>=2.0
+pyproj>=3.6
+# rasterio (lighter than osgeo.gdal for read-only TIFF) – used by flooding scripts
+rasterio>=1.3
+
+# ---- Statistics ------------------------------------------------------------
+statsmodels>=0.14
+
+# ---- ECharts interactive charts (script 2.1) -------------------------------
+pyecharts>=2.0
+snapshot-selenium>=0.0.2
+
+# ---- OS-specific notes -----------------------------------------------------
+# Windows:  GDAL / osgeo is **strongly** recommended to be installed via
+#           `conda install -c conda-forge gdal` instead of pip.
+# Linux:    same – use conda-forge to get the libgdal binary.
+# macOS:    `brew install gdal` first, then `pip install osgeo` may fail;
+#           use `conda install -c conda-forge gdal` instead.
+# GDAL itself is therefore NOT pinned here; install it via conda-forge
+# (see analysis/environment.yml) for a binary-compatible build.

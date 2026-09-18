@@ -34,13 +34,6 @@
         <repository>
             <!-- Geotools is not on Maven central -->
             <id>osgeo</id>
-            <name>Geotools repository</name>
-            <!-- <url>http://download.osgeo.org/webdav/geotools</url> -->
-                        <url>https://repo.osgeo.org/repository/release/</url>
-<!--            <url>https://repo.osgeo.org/repository/geotools-releases/</url>-->
-        </repository>
-        <repository>
-            <id>osgeo</id>
             <name>OSGeo Release Repository</name>
                         <url>https://repo.osgeo.org/repository/release/</url>
 <!--            <url>https://repo.osgeo.org/repository/geotools-releases/</url>-->
@@ -206,11 +199,6 @@
             <groupId>org.geotools</groupId>
             <artifactId>gt-referencing</artifactId>
             <version>${geotools.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.geotools</groupId>
-            <artifactId>gt-shapefile</artifactId>
-            <version>${geotools.version}</version> <!-- 推荐使用较新稳定版本 -->
         </dependency>
         <!-- 添加JSR-385兼容性依赖 -->
         <dependency>

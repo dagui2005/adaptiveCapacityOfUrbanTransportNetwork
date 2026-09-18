@@ -22,6 +22,7 @@ import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.config.groups.RoutingConfigGroup;
 import org.matsim.core.config.groups.ScoringConfigGroup;
+import org.matsim.core.config.groups.ReplanningConfigGroup;
 import org.matsim.core.controler.Controler;
 import org.matsim.core.controler.OutputDirectoryHierarchy;
 import org.matsim.core.scenario.ScenarioUtils;
@@ -74,10 +75,10 @@ public class RunMatsimBaseline {
         ptParams.setMonetaryDistanceRate(0);  // "[money / m] conversion of distance into money. Normally negative."
         ptParams.setDailyUtilityConstant(0);  // [unit / day]
         ptParams.setDailyMonetaryConstant(0);   // [money / day]
-        ptParams.setMarginalUtilityOfTraveling(-15);
+        ptParams.setMarginalUtilityOfTraveling(-6);  // 降低pt时间惩罚（原-15过大），使pt和car效用更均衡
         ScoringConfigGroup.ModeParams carParmas = new ScoringConfigGroup.ModeParams("car");
 
-        carParmas.setConstant(-80);
+        carParmas.setConstant(-10);  // 降低car模式固定惩罚（原-80过度惩罚car，导致模式分担率失真）
 
         carParmas.setMarginalUtilityOfDistance(0);
         carParmas.setMarginalUtilityOfTraveling(0);
@@ -92,12 +93,32 @@ public class RunMatsimBaseline {
         RoutingConfigGroup.TeleportedModeParams walkParams = (RoutingConfigGroup.TeleportedModeParams)
                 config.routing().getModeRoutingParams().get("walk");
         walkParams.setTeleportedModeSpeed(1.6666666666666667);  // 6 km/h = 1.6667 m/s
-        walkParams.setBeelineDistanceFactor(1.0);
+        walkParams.setBeelineDistanceFactor(1.3);  // 步行绕行系数（原1.0导致pt步行距离被低估）
 
         config.counts().setCountsScaleFactor(100);
         // 设置网络容量系数为0.3，以适配抽样Agent产生的真实路况
         config.qsim().setFlowCapFactor(0.3);
         config.qsim().setStorageCapFactor(1); 
+
+        // === 策略权重覆盖（策略D：提高SubtourModeChoice权重促进模式切换）===
+        // 遍历已有策略，修改权重
+        for (ReplanningConfigGroup.StrategySettings ss : config.replanning().getStrategySettings()) {
+            switch (ss.getStrategyName()) {
+                case "SelectExpBeta":
+                    ss.setWeight(0.5);   // 0.7→0.5
+                    break;
+                case "SubtourModeChoice":
+                    ss.setWeight(0.3);   // 0.1→0.3 提高模式切换权重
+                    break;
+                case "ReRoute":
+                    ss.setWeight(0.1);   // 保持不变
+                    break;
+                case "TimeAllocationMutator_ReRoute":
+                    ss.setWeight(0.1);   // 保持不变
+                    break;
+            }
+        }
+        config.replanning().setMaxAgentPlanMemorySize(5);
 
         config.global().setNumberOfThreads(12);  // innovative strategies. using the number of available cores.
         config.qsim().setNumberOfThreads(8);  // parallel qsim.

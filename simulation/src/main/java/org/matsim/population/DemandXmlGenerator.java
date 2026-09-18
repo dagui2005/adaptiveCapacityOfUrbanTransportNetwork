@@ -204,8 +204,25 @@ public class DemandXmlGenerator {
                 continue;
             }
 
-            // Mode
-            String mode = (t.mode == 4) ? "pt" : "car";
+            // Mode 映射（策略D）：
+            // mode=1(公路) → car（含公交/私家车，初始标为car，由SubtourModeChoice迭代优化）
+            // mode=2(铁路) → pt
+            // mode=4(地铁) → pt
+            // mode=0(其他) / mode=3(飞机) → 过滤掉
+            String mode;
+            switch (t.mode) {
+                case 1:  // 公路 - 初始标为 car，后续由 SubtourModeChoice 优化
+                    mode = "car";
+                    break;
+                case 2:  // 铁路
+                case 4:  // 地铁
+                    mode = "pt";
+                    break;
+                default: // mode=0(其他) / mode=3(飞机) - 过滤掉
+                    mode = null;
+                    break;
+            }
+            if (mode == null) continue;  // 跳过该出行
             Leg leg = population.getFactory().createLeg(mode);
             plan.addLeg(leg);
 

@@ -1,0 +1,58 @@
+# ===== Build output =====
+simulation/target/
+*.class
+*.jar
+*.war
+
+# ===== IDE =====
+.idea/
+*.iml
+.vscode/
+.workbuddy/
+
+# ===== MATSim runtime outputs (regenerated) =====
+simulation/scenarios/*/scenarios/
+simulation/scenarios/*/output/
+simulation/scenarios/*/*Output/
+simulation/scenarios/*/*output/
+
+# ===== Working scripts under out/ =====
+# Stable scripts (whitelist below) are tracked; everything else is ignored.
+# Whitelisted (do NOT add to ignore list):
+#   out/compile_sim.bat
+#   out/check_class.ps1
+#   out/start_transitbuilder.ps1
+#   out/monitor_transitbuilder.ps1
+#   out/regen_network.ps1
+#   out/xml_continuity_check.ps1
+#   out/run_simulation_layer5.bat
+#   out/monitor_layer4.bat
+#
+# All other out/* files are one-off experimental tools — ignore.
+
+# Ignore everything in out/ by default, then whitelist specific files via !patterns
+out/*
+!out/compile_sim.bat
+!out/check_class.ps1
+!out/start_transitbuilder.ps1
+!out/monitor_transitbuilder.ps1
+!out/regen_network.ps1
+!out/xml_continuity_check.ps1
+!out/run_simulation_layer5.bat
+!out/monitor_layer4.bat
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Local data (D 盘 references — never commit) =====
+original-input-data/
+*.tif
+*.shp
+*.dbf
+*.prj
+*.shx
+
+# ===== One-off review docs (can be regenerated) =====
+*审核结论*.md
