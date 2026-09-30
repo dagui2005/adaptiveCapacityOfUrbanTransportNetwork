@@ -56,3 +56,10 @@ original-input-data/
 
 # ===== One-off review docs (can be regenerated) =====
 *审核结论*.md
+
+# ===== Backup files (any location) =====
+*.bak
+*.bak_*
+
+# ===== Root-level experimental logs (Maven/manifest/diagnostic) =====
+/_*.log
